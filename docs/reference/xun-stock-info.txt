@@ -1,0 +1,140 @@
+Redmi Pad SE (xun) — stock boot information
+============================================
+
+Source: gm-stuffs/redmi_xun_dump, branch
+missi-user-15-AQ3A.240829.003-OS2.0.1.0.VMUMIXM-release-keys
+
+Device
+------
+manufacturer: xiaomi
+platform: bengal
+codename: xun
+Android: 15 (AQ3A.240829.003)
+build: OS2.0.1.0.VMUMIXM
+fingerprint: Redmi/xun_global/xun:13/TKQ1.221114.001/OS2.0.1.0.VMUMIXM:user/release-keys
+A/B: true
+board-info: require version-trustzone=TZ.XF.5.1.6-74762-4
+            require version-vendor=1736424956
+
+Device tree
+-----------
+Base DTB: aosp-device-tree/prebuilts/dtb.img (from vendor_boot)
+  model: Qualcomm Technologies, Inc. Khaje SoC
+  compatible: qcom,khaje
+  msm-id: 0x206 0x10000
+  board-id: 0x0 0x0 (filled/selected by ABL)
+
+xun DTBO overlay: entries 46/47 of the dump's extracted dtbo/ set
+  model: Qualcomm Technologies, Inc. KHAJE IDP nopmi xun
+  compatible: qcom,khaje-idp, qcom,khaje, qcom,idp
+  msm-id: 0x206 0x10000
+  board-id: 0x20022 0x0
+  pmic-id: 0x2d 0x0 0x0 0x0
+
+Boot images
+-----------
+boot.img
+  size: 100663296
+  header version: 4
+  kernel size: 47106560
+  ramdisk size: 0
+  cmdline: (empty)
+
+init_boot.img
+  size: 8388608
+  header version: 4
+  kernel size: 0
+  ramdisk size: 2234636
+
+vendor_boot.img
+  size: 100663296
+  header version: 4
+  page size: 4096
+  kernel addr: 0x8000
+  ramdisk addr: 0x1000000
+  vendor ramdisk size: 12562974
+  cmdline: video=vfb:640x400,bpp=32,memsize=3072000 bootconfig
+  header size: 2128
+  dtb size: 1295397
+  dtb addr: 0x1f00000
+
+Partitions (from the Android device tree)
+-----------------------------------------
+boot                100663296
+init_boot             8388608
+vendor_boot         100663296
+recovery            104857600
+dtbo                  8388608
+super              6979321856
+dynamic partitions  odm product system system_dlkm system_ext vendor vendor_dlkm
+slot layout         A/B
+userdata filesystem f2fs
+metadata partition  yes
+
+Memory / splash
+---------------
+Splash region: 0x5c000000 (cont_splash), about 15 MB
+DFPS data:     0x5cf00000
+Stock memory node is a placeholder; ABL fills RAM size at boot.
+
+Relevant stock modules (vendor_dlkm)
+------------------------------------
+focaltech_ts_spi.ko
+nt36532_spi.ko
+lct_tp.ko
+xiaomi_touch_game.ko
+bq2589x_charger.ko
+sh366101_fg.ko
+tcpc_sc2150.ko
+wusb3801x.ko
+fs1815_dlkm.ko
+wcd937x_dlkm.ko
+wcd937x_slave_dlkm.ko
+wcd9xxx_dlkm.ko
+wcd_core_dlkm.ko
+wsa881x_analog_dlkm.ko
+ktz8866_leds.ko
+hall_sensor.ko
+icnss2.ko
+cnss_nl.ko
+cnss_prealloc.ko
+cnss_utils.ko
+wlan_firmware_service.ko
+rmnet_wlan.ko
+radio-i2c-rtc6226-qca.ko
+qti_qmi_sensor.ko
+mi_thermal_interface.ko
+panel_event_notifier.ko
+machine_dlkm.ko
+lct_audio_info_dlkm.ko
+
+Stock firmware present in vendor/firmware
+-----------------------------------------
+a610_zap.{mdt,b00,b01,b02,elf}
+venus*.mbn
+vpu20_*.mbn
+fs1815.fsm
+sipa.bin
+wlan/qca_cld/WCNSS_qcom_cfg.ini
+wlanmdsp.otaupdate
+
+Touch firmware in odm/firmware
+-------------------------------
+focaltech_ts_fw_boe_ft8203.bin
+focaltech_ts_fw_huaxing_ft8203.bin
+novatek_ts_fw_tianma.bin
+novatek_ts_mp_tianma.bin
+Conf_MultipleTest_ft8203.ini
+Conf_MultipleTest_ft8203_ab.ini
+
+Camera sensor libraries
+-----------------------
+rear:  m84_aac_gc08a3_i (8 MP), m84_aac_hi556_i (5 MP variant)
+front: m84_aac_gc05a2_ii (5 MP)
+plus sunny_imx519 module data
+
+Missing from the dump
+---------------------
+The stock `firmware` partition is not included. It contains WCN3990
+firmware/board data and the ADSP/CDSP/MPSS/IPA images. Dump it from the
+device (root) or from a full fastboot ROM before wiping.

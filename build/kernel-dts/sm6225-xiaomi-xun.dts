@@ -1,0 +1,1025 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Xiaomi Redmi Pad SE 11" (xun), SM6225 "Khaje".
+ *
+ * Layout follows the Redmi Note 12 4G (tapas) board file, which shares the
+ * SoC, PMIC and most of the board with xun. The differences come from the
+ * stock xun device tree (docs/reference/xun-merged.dts) and from the live
+ * device: eMMC instead of UFS, the FT8203 touch controller on SPI, the M84
+ * panel family, and the WCN3990 Wi-Fi/BT combo.
+ *
+ * The bootloader does not see this DTB (the shim passes it), so the memory
+ * node is the layout ABL reports for the 6 GB unit.
+ */
+/dts-v1/;
+#include "sm6225.dtsi"
+#include "pm6125.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/input/linux-event-codes.h>
+#include <dt-bindings/soc/qcom,gpr.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
+#include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
+
+/delete-node/ &{/memory@80000000};
+
+/ {
+	model = "Xiaomi Redmi Pad SE";
+	compatible = "xiaomi,xun", "qcom,sm6225";
+	chassis-type = "tablet";
+
+	qcom,msm-id = <0x206 0x10000>;
+	qcom,board-id = <0x20022 0x00>;
+	qcom,pmic-id = <0x2d 0x00 0x00 0x00>;
+
+	aliases {
+		serial0 = &uart3;
+	};
+
+	/* ABL "RAM Partitions": 2 GB rank 0 + 4 GB rank 1 */
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x0 0x40000000 0x0 0x3cc00000>,
+		      <0x0 0x80000000 0x0 0x40000000>,
+		      <0x0 0xc0000000 0x1 0x00000000>;
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		stdout-path = "framebuffer0";
+		/*
+		 * The panel is mounted upside down in the tablet shell; the
+		 * kernel cmdline given by the shim comes from here.
+		 */
+		bootargs = "console=tty0 consoleblank=0 loglevel=7 printk.devkmsg=on log_buf_len=2M clk_ignore_unused pd_ignore_unused fw_devlink=off deferred_probe_timeout=120 rcupdate.rcu_cpu_stall_suppress=1 video=DSI-1:panel_orientation=upside_down";
+
+		/* 1200x1920, 32 bpp: the splash buffer ABL scans out */
+		framebuffer0: framebuffer@5c000000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0x5c000000 0x0 (1920 * 1200 * 4)>;
+			width = <1200>;
+			height = <1920>;
+			stride = <(1200 * 4)>;
+			format = "a8r8g8b8";
+			refresh-rate = <90>;
+			panel = <&framebuffer_panel>;
+		};
+	};
+
+	/* 147.4 x 235.8 mm active area (stock qcom,mdss-pan-physical-*-dimension / 10) */
+	framebuffer_panel: framebuffer-panel {
+		width-mm = <147>;
+		height-mm = <236>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vol_up_n>;
+
+		key-volume-up {
+			label = "Volume Up";
+			gpios = <&pm6125_gpios 5 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <15>;
+		};
+	};
+
+	/* Stock vibrator_gpio: the motor runs while PM6125 GPIO8 is high */
+	vibrator {
+		compatible = "gpio-vibrator";
+		enable-gpios = <&pm6125_gpios 8 GPIO_ACTIVE_HIGH>;
+		pinctrl-0 = <&vib_en_default>;
+		pinctrl-names = "default";
+	};
+};
+
+&xo_board {
+	clock-frequency = <19200000>;
+};
+
+&sleep_clk {
+	clock-frequency = <32764>;
+};
+
+&reserved_memory {
+	ramoops@5d000000 {
+		compatible = "ramoops";
+		reg = <0x0 0x5d000000 0x0 0x200000>;
+		record-size = <0x40000>;
+		pmsg-size = <0x100000>;
+		console-size = <0x80000>;
+		no-map;
+	};
+};
+
+/* The splash scanout depends on the dispcc PLL rates ABL programmed */
+&dispcc {
+	status = "okay";
+};
+
+/* DPU + DSI + the M84 panel */
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	status = "okay";
+
+	panel@0 {
+		compatible = "xiaomi,m84-35-03-0b";
+		reg = <0>;
+
+		reset-gpios = <&tlmm 82 GPIO_ACTIVE_LOW>;
+
+		pinctrl-0 = <&panel_te_active>;
+		pinctrl-names = "default";
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mdss_dsi0_out>;
+			};
+		};
+	};
+};
+
+&mdss_dsi0_out {
+	data-lanes = <0 1 2 3>;
+	remote-endpoint = <&panel_in>;
+};
+
+&mdss_dsi0_phy {
+	status = "okay";
+};
+
+&pon_pwrkey {
+	status = "okay";
+};
+
+&pon_resin {
+	linux,code = <KEY_VOLUMEDOWN>;
+	status = "okay";
+};
+
+&pm6125_rtc {
+	allow-set-time;
+	status = "okay";
+};
+
+&pm6125_gpios {
+	vib_en_default: vib-en-default-state {
+		pins = "gpio8";
+		function = "normal";
+		power-source = <0>;
+		output-low;
+	};
+
+	vol_up_n: vol-up-n-state {
+		pins = "gpio5";
+		function = "normal";
+		power-source = <0>;
+		bias-pull-up;
+		input-enable;
+	};
+};
+
+&rpm_requests {
+	regulators-0 {
+		compatible = "qcom,rpm-pm6125-regulators";
+
+		pm6125_s6: s6 {
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1419000>;
+		};
+
+		pm6125_s7: s7 {
+			regulator-min-microvolt = <1569000>;
+			regulator-max-microvolt = <2040000>;
+		};
+
+		pm6125_s8: s8 {
+			regulator-min-microvolt = <1060000>;
+			regulator-max-microvolt = <1170000>;
+		};
+
+		pm6125_l1: l1 {
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <1150000>;
+		};
+
+		/* USB PHY */
+		pm6125_l4: l4 {
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+		};
+
+		/* eMMC / SD card I/O */
+		pm6125_l5: l5 {
+			regulator-min-microvolt = <1648000>;
+			regulator-max-microvolt = <3200000>;
+			regulator-allow-set-load;
+			regulator-always-on;
+		};
+
+		pm6125_l6: l6 {
+			regulator-min-microvolt = <570000>;
+			regulator-max-microvolt = <650000>;
+		};
+
+		pm6125_l7: l7 {
+			regulator-min-microvolt = <1256000>;
+			regulator-max-microvolt = <1256000>;
+			regulator-always-on;
+		};
+
+		pm6125_l8: l8 {
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <728000>;
+		};
+
+		/* Touch I/O and Wi-Fi/BT I/O (stock vdd-io / vddio) */
+		pm6125_l9: l9 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2000000>;
+			regulator-always-on;
+		};
+
+		pm6125_l10: l10 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <1900000>;
+		};
+
+		/* eMMC VCCQ2 (stock qcom,vdd-io-voltage-level 1.8 V) */
+		pm6125_l11: l11 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-allow-set-load;
+		};
+
+		/* USB PHY PLL */
+		pm6125_l12: l12 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <1980000>;
+		};
+
+		pm6125_l13: l13 {
+			regulator-min-microvolt = <1504000>;
+			regulator-max-microvolt = <2000000>;
+		};
+
+		pm6125_l14: l14 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <1900000>;
+		};
+
+		/* USB PHY D+/D- */
+		pm6125_l15: l15 {
+			regulator-min-microvolt = <3104000>;
+			regulator-max-microvolt = <3232000>;
+		};
+
+		/* Wi-Fi/BT xtal rail (stock qcom,bt-vdd-xtal) */
+		pm6125_l16: l16 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <1900000>;
+		};
+
+		/* Wi-Fi/BT core rail (stock qcom,bt-vdd-core) */
+		pm6125_l17: l17 {
+			regulator-min-microvolt = <1220000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		pm6125_l18: l18 {
+			regulator-min-microvolt = <1232000>;
+			regulator-max-microvolt = <1232000>;
+		};
+
+		pm6125_l19: l19 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm6125_l20: l20 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm6125_l21: l21 {
+			regulator-min-microvolt = <1600000>;
+			regulator-max-microvolt = <3544000>;
+		};
+
+		/* SD card VCC (stock vdd-supply of sdhc_2) */
+		pm6125_l22: l22 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-allow-set-load;
+		};
+
+		/* Wi-Fi/BT PA rail (stock qcom,bt-vdd-pa) */
+		pm6125_l23: l23 {
+			regulator-min-microvolt = <3296000>;
+			regulator-max-microvolt = <3304000>;
+			regulator-always-on;
+		};
+
+		/* eMMC VCC (stock qcom,vdd-voltage-level 2.95 V) */
+		pm6125_l24: l24 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-allow-set-load;
+		};
+	};
+};
+
+&qupv3_id_0 {
+	status = "okay";
+};
+
+&gpi_dma0 {
+	status = "okay";
+};
+
+/* Fuel gauge: the SH366101 tracks the battery on its own */
+&i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+	assigned-clocks = <&gcc GCC_QUPV3_WRAP0_S2_CLK>;
+	assigned-clock-rates = <19200000>;
+
+	fuel-gauge@55 {
+		compatible = "sinowealth,sh366101";
+		reg = <0x55>;
+	};
+};
+
+/* eMMC: the boot medium (mmcblk0), 8 bits, HS200/HS400 */
+&sdhc_1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_state_on>;
+	pinctrl-1 = <&sdc1_state_off>;
+
+	vmmc-supply = <&pm6125_l24>;
+	vqmmc-supply = <&pm6125_l11>;
+
+	bus-width = <8>;
+	non-removable;
+	no-sd;
+	no-sdio;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	status = "okay";
+};
+
+/* microSD, card detect on GPIO88 */
+&sdhc_2 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_state_on>;
+	pinctrl-1 = <&sdc2_state_off>;
+
+	vmmc-supply = <&pm6125_l22>;
+	vqmmc-supply = <&pm6125_l5>;
+
+	bus-width = <4>;
+	no-sdio;
+	no-mmc;
+	qcom,ddr-config = <0x80040868>;
+	sdhci-caps-mask = <0x00000002 0x00000000>;
+	cd-gpios = <&tlmm 88 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&usb {
+	qcom,select-utmi-as-pipe-clk;
+	status = "okay";
+};
+
+&usb_dwc3 {
+	phys = <&usb_hsphy>;
+	phy-names = "usb2-phy";
+	maximum-speed = "high-speed";
+	dr_mode = "peripheral";
+};
+
+&usb_hsphy {
+	vdd-supply = <&pm6125_l4>;
+	vdda-pll-supply = <&pm6125_l12>;
+	vdda-phy-dpdm-supply = <&pm6125_l15>;
+	status = "okay";
+};
+
+&adreno_smmu {
+	status = "okay";
+};
+
+&gpu {
+	status = "okay";
+};
+
+/*
+ * Modem. Its DSP also runs the WLAN firmware (wlanmdsp.mbn, served by
+ * tqftpserv over QRTR), which is what WCN3990 Wi-Fi needs.
+ */
+&remoteproc_mpss {
+	firmware-name = "qcom/sm6225/xiaomi/xun/modem.mdt";
+	status = "okay";
+};
+
+/* WCN3990: same rails as the stock icnss node, board data per device */
+&wifi {
+	vdd-0.8-cx-mx-supply = <&pm6125_l8>;
+	vdd-1.8-xo-supply = <&pm6125_l16>;
+	vdd-1.3-rfa-supply = <&pm6125_l17>;
+	vdd-3.3-ch0-supply = <&pm6125_l23>;
+	firmware-name = "xiaomi-xun";
+	status = "okay";
+};
+
+&uart3 {
+	pinctrl-0 = <&qup_uart3_4pin>;
+	status = "okay";
+
+	bluetooth {
+		compatible = "qcom,wcn3990-bt";
+		qcom,bt-sw-ctrl-gpio = <&tlmm 87 GPIO_ACTIVE_HIGH>;
+		vddio-supply = <&pm6125_l9>;
+		vddxo-supply = <&pm6125_l16>;
+		vddrf-supply = <&pm6125_l17>;
+		vddch0-supply = <&pm6125_l23>;
+		max-speed = <3200000>;
+	};
+};
+
+/*
+ * Touch: FocalTech FT8203 on SPI0, chip select 0.
+ * IRQ GPIO80, reset GPIO86, from the stock qupv3_se0_spi node.
+ */
+&spi0 {
+	status = "okay";
+
+	touchscreen@0 {
+		compatible = "focaltech,ft8203";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <80 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&tlmm 86 GPIO_ACTIVE_LOW>;
+		firmware-name = "focaltech_ts_fw_boe_ft8203.bin";
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		vcc-supply = <&pm6125_l9>;
+	};
+};
+
+&tlmm {
+	sdc1_state_on: sdc1-on-state {
+		clk-pins {
+			pins = "sdc1_clk";
+			bias-disable;
+			drive-strength = <16>;
+		};
+
+		cmd-pins {
+			pins = "sdc1_cmd";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
+
+		data-pins {
+			pins = "sdc1_data";
+			bias-pull-up;
+			drive-strength = <10>;
+		};
+
+		rclk-pins {
+			pins = "sdc1_rclk";
+			bias-pull-down;
+		};
+	};
+
+	sdc1_state_off: sdc1-off-state {
+		clk-pins {
+			pins = "sdc1_clk";
+			bias-disable;
+			drive-strength = <2>;
+		};
+
+		cmd-pins {
+			pins = "sdc1_cmd";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+
+		data-pins {
+			pins = "sdc1_data";
+			bias-pull-up;
+			drive-strength = <2>;
+		};
+
+		rclk-pins {
+			pins = "sdc1_rclk";
+			bias-pull-down;
+		};
+	};
+
+
+
+	panel_te_active: panel-te-active-state {
+		pins = "gpio81";
+		function = "mdp_vsync";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	ts_int_active: ts-int-active-state {
+		pins = "gpio80";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-up;
+	};
+
+	ts_int_suspend: ts-int-suspend-state {
+		pins = "gpio80";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	ts_reset_active: ts-reset-active-state {
+		pins = "gpio86";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-up;
+	};
+
+	ts_reset_suspend: ts-reset-suspend-state {
+		pins = "gpio86";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
+
+
+/* ---- audio: ADSP/AudioReach, WCD937x, LPASS macros ---- */
+/ {
+	sound {
+		compatible = "qcom,qrb4210-rb2-sndcard";
+		model = "SM6225-Xun";
+		audio-routing =
+				"AMIC1", "MIC BIAS1",
+				"AMIC2", "MIC BIAS2",
+				"AMIC3", "MIC BIAS3",
+
+				"IN1_HPHL", "HPHL_OUT",
+				"IN2_HPHR", "HPHR_OUT",
+				"IN3_AUX", "AUX_OUT",
+
+				"VA DMIC0", "VA MIC BIAS1",
+				"VA DMIC1", "VA MIC BIAS1",
+				"VA DMIC2", "VA MIC BIAS3",
+				"VA DMIC3", "VA MIC BIAS3",
+
+				"VA SWR_MIC0", "ADC1_OUTPUT",
+				"VA SWR_MIC4", "ADC2_OUTPUT",
+				"VA SWR_MIC5", "ADC3_OUTPUT",
+
+				"TX SWR_INPUT0", "ADC1_OUTPUT",
+				"TX SWR_INPUT4", "ADC2_OUTPUT";
+
+
+		/* MultiMedia1-3 (hw:0,0-2) come from the topology */
+
+		wcd-playback-dai-link {
+			link-name = "WCD Playback";
+
+			cpu {
+				sound-dai = <&q6apmbedai RX_CODEC_DMA_RX_0>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&wcd937x 0>,
+				<&swr1 0>,
+				<&rxmacro 0>;
+			};
+		};
+
+
+		wcd-capture-dai-link {
+			link-name = "WCD Capture";
+
+			cpu {
+				sound-dai = <&q6apmbedai TX_CODEC_DMA_TX_3>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&wcd937x 1>,
+				<&swr0 0>,
+				<&txmacro 0>;
+			};
+		};
+
+		va-dai-link {
+			link-name = "VA Capture";
+
+			cpu {
+				sound-dai = <&q6apmbedai VA_CODEC_DMA_TX_0>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&vamacro 0>;
+			};
+		};
+	};
+};
+
+&soc {
+	rxmacro: codec@a600000 {
+		compatible = "qcom,sm6115-lpass-rx-macro";
+		reg = <0x0 0x0a600000 0x0 0x1000>;
+		#clock-cells = <0>;
+		#sound-dai-cells = <1>;
+		clocks = <&q6prmcc LPASS_CLK_ID_RX_CORE_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_CLK_ID_RX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_HW_DCODEC_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&vamacro>;
+		clock-names = "mclk", "npl", "dcodec", "fsgen";
+		clock-output-names = "mclk";
+		status = "okay";
+	};
+
+	txmacro: codec@a620000 {
+		compatible = "qcom,sm6115-lpass-tx-macro";
+		reg = <0x0 0x0a620000 0x0 0x1000>;
+		qcom,dmic-sample-rate = <600000>;
+		#clock-cells = <0>;
+		#sound-dai-cells = <1>;
+		pinctrl-0 = <&lpi_dmic01_active &lpi_dmic23_active>;
+		pinctrl-names = "default";
+		clocks = <&q6prmcc LPASS_CLK_ID_TX_CORE_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_HW_DCODEC_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&vamacro>;
+		clock-names = "mclk", "npl", "dcodec", "fsgen";
+		clock-output-names = "mclk";
+		status = "okay";
+	};
+
+	vamacro: codec@a730000 {
+		compatible = "qcom,sm6115-lpass-va-macro";
+		reg = <0x0 0x0a730000 0x0 0x1000>;
+		qcom,dmic-sample-rate = <600000>;
+		#clock-cells = <0>;
+		#sound-dai-cells = <1>;
+		clocks = <&q6prmcc LPASS_CLK_ID_TX_CORE_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_HW_DCODEC_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		clock-names = "mclk", "dcodec", "npl";
+		clock-output-names = "fsgen";
+		status = "okay";
+	};
+
+	lpass_audiocc: clock-controller@a6a9000 {
+		compatible = "qcom,sm6115-lpassaudiocc";
+		reg = <0x0 0x0a6a9000 0x0 0x1000>;
+		#reset-cells = <1>;
+
+		status = "okay";
+	};
+
+	lpasscc: clock-controller@a7ec000 {
+		compatible = "qcom,sm6115-lpasscc";
+		reg = <0x0 0x0a7ec000 0x0 0x1000>;
+		#reset-cells = <1>;
+
+		status = "okay";
+	};
+
+	wcd937x: codec {
+		compatible = "qcom,wcd9370-codec";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_reset_n>;
+		reset-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
+		vdd-buck-supply = <&pm6125_l14>;
+		vdd-rxtx-supply = <&pm6125_l9>;
+		vdd-px-supply = <&pm6125_l9>;
+		qcom,micbias1-microvolt = <2700000>;
+		qcom,micbias2-microvolt = <2700000>;
+		qcom,micbias3-microvolt = <2700000>;
+		qcom,rx-device = <&wcd937x_rx>;
+		qcom,tx-device = <&wcd937x_tx>;
+		#sound-dai-cells = <1>;
+	};
+
+	swr0: soundwire@a740000 {
+		compatible = "qcom,soundwire-v1.6.0";
+		reg = <0x0 0x0a740000 0x0 0x2000>;
+		interrupts = <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+
+		pinctrl-0 = <&lpi_swr_tx_active>;
+		pinctrl-names = "default";
+
+		clocks = <&txmacro>;
+		clock-names = "iface";
+
+		resets = <&lpasscc 0>;
+		reset-names = "swr_audio_cgcr";
+
+		label = "VA_TX";
+
+		qcom,din-ports = <3>;
+		qcom,dout-ports = <0>;
+
+		qcom,ports-sinterval-low =
+		/bits/ 8 <0x03 0x03 0x03>;
+		qcom,ports-offset1 =
+		/bits/ 8 <0x01 0x02 0x01>;
+		qcom,ports-offset2 =
+		/bits/ 8 <0x00 0x00 0x00>;
+		qcom,ports-hstart =
+		/bits/ 8 <0xff 0xff 0xff>;
+		qcom,ports-hstop =
+		/bits/ 8 <0xff 0xff 0xff>;
+		qcom,ports-word-length =
+		/bits/ 8 <0xff 0xff 0xff>;
+		qcom,ports-block-pack-mode =
+		/bits/ 8 <0xff 0xff 0xff>;
+		qcom,ports-block-group-count =
+		/bits/ 8 <0xff 0xff 0xff>;
+		qcom,ports-lane-control =
+		/bits/ 8 <0x00 0x00 0x00>;
+
+		#sound-dai-cells = <1>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		wcd937x_tx: codec@0,3 {
+			compatible = "sdw20217010a00";
+			reg = <0 3>;
+
+			/*
+			 * WCD9370 TX Port 1 (ADC1)               <=> SWR Port 1
+			 * WCD9370 TX Port 2 (ADC2, 3)            <=> SWR Port 1
+			 * WCD9370 TX Port 3 (DMIC0,1,2,3 & MBHC) <=> SWR Port 2
+			 * WCD9370 TX Port 4 (DMIC4,5,6,7)        <=> SWR Port 3
+			 */
+			qcom,tx-port-mapping = <1 1 2 3>;
+
+			/*
+			 * Static channel mapping between slave and master tx
+			 * port channels, in the order of slave port channels
+			 * which is adc1, adc2, adc3, mic0, dmic1, mbhc,
+			 * dmic2, dmic3, dmic4, dmic5, dmic6, dmic7.
+			 */
+			qcom,tx-channel-mapping = /bits/ 8
+			<1 2 1 1 2 3 3 4 1 2 3 4>;
+		};
+	};
+
+	swr1: soundwire@a610000 {
+		compatible = "qcom,soundwire-v1.6.0";
+		reg = <0x0 0x0a610000 0x0 0x2000>;
+		interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
+
+		pinctrl-0 = <&lpi_swr_rx_active>;
+		pinctrl-names = "default";
+
+		clocks = <&rxmacro>;
+		clock-names = "iface";
+
+		resets = <&lpass_audiocc 0>;
+		reset-names = "swr_audio_cgcr";
+
+		label = "RX";
+
+		qcom,din-ports = <0>;
+		qcom,dout-ports = <5>;
+
+		qcom,ports-sinterval-low =
+		/bits/ 8 <0x03 0x1f 0x1f 0x07 0x00>;
+		qcom,ports-offset1 =
+		/bits/ 8 <0x00 0x00 0x0b 0x01 0x00>;
+		qcom,ports-offset2 =
+		/bits/ 8 <0x00 0x00 0x0b 0x00 0x00>;
+		qcom,ports-hstart =
+		/bits/ 8 <0xff 0x03 0xff 0xff 0xff>;
+		qcom,ports-hstop =
+		/bits/ 8 <0xff 0x06 0xff 0xff 0xff>;
+		qcom,ports-word-length =
+		/bits/ 8 <0x01 0x07 0x04 0xff 0xff>;
+		qcom,ports-block-pack-mode =
+		/bits/ 8 <0xff 0x00 0x01 0xff 0xff>;
+		qcom,ports-block-group-count =
+		/bits/ 8 <0xff 0xff 0xff 0xff 0x00>;
+		qcom,ports-lane-control =
+		/bits/ 8 <0x01 0x00 0x00 0x00 0x00>;
+
+		#sound-dai-cells = <1>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		wcd937x_rx: codec@0,4 {
+			compatible = "sdw20217010a00";
+			reg = <0 4>;
+			qcom,rx-port-mapping = <1 2 3 4 5>;
+			qcom,rx-channel-mapping = /bits/ 8
+			<1 2 1 1 2 1 1 2>;
+		};
+	};
+};
+
+
+&lpass_tlmm {
+	lpi_swr_tx_active: lpi-swr-tx-active-state {
+		clk-pins {
+			pins = "gpio0";
+			function = "swr_tx_clk";
+			bias-disable;
+			drive-strength = <10>;
+			slew-rate = <3>;
+		};
+
+		data-pins {
+			pins = "gpio1", "gpio2";
+			function = "swr_tx_data";
+			bias-bus-hold;
+			drive-strength = <10>;
+			slew-rate = <3>;
+		};
+	};
+
+	lpi_swr_tx_sleep: lpi-swr-tx-sleep-state {
+		clk-pins {
+			pins = "gpio0";
+			function = "swr_tx_clk";
+			bias-pull-down;
+			drive-strength = <10>;
+			input-enable;
+		};
+
+		data-pins {
+			pins = "gpio1", "gpio2";
+			function = "swr_tx_data";
+			bias-bus-hold;
+			drive-strength = <10>;
+			input-enable;
+		};
+	};
+
+	lpi_swr_rx_active: lpi-swr-rx-active-state {
+		clk-pins {
+			pins = "gpio3";
+			function = "swr_rx_clk";
+			bias-disable;
+			drive-strength = <10>;
+			slew-rate = <3>;
+		};
+
+		data-pins {
+			pins = "gpio4", "gpio5";
+			function = "swr_rx_data";
+			bias-bus-hold;
+			drive-strength = <10>;
+			slew-rate = <3>;
+		};
+	};
+
+	lpi_swr_rx_sleep: lpi-swr-rx-sleep-state {
+		clk-pins {
+			pins = "gpio3";
+			function = "swr_rx_clk";
+			bias-pull-down;
+			drive-strength = <10>;
+			input-enable;
+		};
+
+		data-pins {
+			pins = "gpio4", "gpio5";
+			function = "swr_rx_data";
+			bias-bus-hold;
+			drive-strength = <10>;
+			input-enable;
+		};
+	};
+
+	lpi_dmic01_active: lpi-dmic01-active-state {
+		clk-pins {
+			pins = "gpio6";
+			function = "dmic01_clk";
+			drive-strength = <8>;
+			output-high;
+		};
+
+		data-pins {
+			pins = "gpio7";
+			function = "dmic01_data";
+			drive-strength = <8>;
+			input-enable;
+		};
+	};
+
+	lpi_dmic23_active: lpi-dmic23-active-state {
+		clk-pins {
+			pins = "gpio8";
+			function = "dmic23_clk";
+			drive-strength = <8>;
+			output-high;
+		};
+
+		data-pins {
+			pins = "gpio9";
+			function = "dmic23_data";
+			drive-strength = <8>;
+			input-enable;
+		};
+	};
+};
+
+
+&remoteproc_adsp {
+	firmware-name = "qcom/sm6225/xiaomi/xun/adsp.mdt";
+	status = "okay";
+
+	glink-edge {
+		/delete-node/ apr;
+
+		gpr {
+			compatible = "qcom,gpr";
+			qcom,glink-channels = "adsp_apps";
+			qcom,domain = <GPR_DOMAIN_ID_ADSP>;
+			qcom,intents = <512 20>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			q6apm: service@1 {
+				compatible = "qcom,q6apm";
+				reg = <GPR_APM_MODULE_IID>;
+				#sound-dai-cells = <0>;
+				qcom,protection-domain = "avs/audio", "msm/adsp/audio_pd";
+
+				q6apmdai: dais {
+					compatible = "qcom,q6apm-dais";
+					/* stock msm-audio-ion */
+					iommus = <&apps_smmu 0x1c1 0x0>;
+				};
+
+				q6apmbedai: bedais {
+					compatible = "qcom,q6apm-lpass-dais";
+					#sound-dai-cells = <1>;
+				};
+			};
+
+			q6prm: service@2 {
+				compatible = "qcom,q6prm";
+				reg = <GPR_PRM_MODULE_IID>;
+				qcom,protection-domain = "avs/audio", "msm/adsp/audio_pd";
+
+				q6prmcc: clock-controller {
+					compatible = "qcom,q6prm-lpass-clocks";
+					#clock-cells = <2>;
+				};
+			};
+		};
+	};
+};
+
+
+&tlmm {
+	wcd_reset_n: wcd-reset-n-active-state {
+		pins = "gpio92";
+		function = "gpio";
+		drive-strength = <16>;
+		output-high;
+	};
+};
+
+/* The LPASS pinctrl takes its vote clock from the PRM service (AudioReach) */
+&lpass_tlmm {
+	clocks = <&q6prmcc LPASS_HW_DCODEC_VOTE LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+};
+
+/* PS_HOLD: releasing it powers the PMIC down (the PON driver sets the type) */
+&soc {
+	restart@440b000 {
+		compatible = "qcom,pshold";
+		reg = <0x0 0x0440b000 0x0 0x4>;
+	};
+};

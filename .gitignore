@@ -1,0 +1,29 @@
+# Build and extraction output
+out/
+xun-dt/
+*.dtb
+*.img
+*.o
+*.ko
+__pycache__/
+
+# build/ keeps the sources of the port; the kernel tree, downloaded images,
+# device dumps and build output are fetched or produced by
+# build/fetch-sources.sh and build/build-xun.sh.
+build/*
+!build/build-xun.sh
+!build/deploy-boot.sh
+!build/fetch-sources.sh
+!build/make-rootfs.sh
+!build/mktplg.sh
+!build/rootfs-init.sh
+!build/usb-proxy.py
+!build/config/
+!build/device/
+!build/kernel-battery/
+!build/kernel-dts/
+!build/kernel-panel/
+!build/kernel-touch/
+!build/patches/
+!build/topology/
+!build/ucm2/

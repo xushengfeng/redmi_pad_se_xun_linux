@@ -1,0 +1,152 @@
+# Building and running the xun port
+
+This is the practical side: what to download, how to build the kernel and the
+boot image, how to install it, and how the Alpine system on the tablet is
+laid out. Everything lives in `build/`; the repository keeps the sources of
+the port, not the trees and images they are built from.
+
+## What the tablet runs
+
+| Part | |
+| --- | --- |
+| Kernel | mainline 7.2.1 + selected `stable-sm6225` commits + xun DTS and drivers |
+| Boot image | Android boot header **v4** with the tapas shim, kernel and DTB in the legacy payload fields |
+| Slot | `boot_b`, slot B active, slot A keeps Android; `qbootctl -m` at boot keeps ABL from falling back to recovery |
+| Rootfs | Alpine 3.24 aarch64 on the internal eMMC, ext4, ~105 GB |
+| Session | greetd autologin of `xun` into GNOME 50 on VT2 (Wayland/mutter, freedreno) |
+
+## Host requirements
+
+An x86_64 Linux host with:
+
+- `clang`/`ld.lld` plus the usual kernel build tools (`make`, `bc`, `flex`,
+  `bison`, `pahole` optional — the config builds without debug info),
+- `curl`, `git`, `m4`, `python3`, `cpio`, `gzip`, `openssl`,
+- `alsatplg` from `alsa-utils` (only to rebuild the audio topology),
+- `android-tools` on the host that flashes, or a second device running it,
+- about 40 GB of disk for the kernel tree and the build output.
+
+## 1. Fetch what is not in the repository
+
+```sh
+cd build
+./fetch-sources.sh
+```
+
+| What | Where from | Revision / file |
+| --- | --- | --- |
+| Linux 7.2.1 tarball | `https://mirrors.tuna.tsinghua.edu.cn/kernel/v7.x/linux-7.2.1.tar.xz` | 7.2.1 |
+| SM6225 support patches | `https://gitlab.postmarketos.org/sm6225-mainline/kernels/linux-v.7.2.1/-/commit/<sha>.patch` | `650f459d`, `8b6545f7`, `f5a976a8`, `e127de2a` (the commits for 7.2.9, `ae725a2c` and `b8463e4b`, do not apply) |
+| tapas bring-up tree (initramfs init, v4 shim, base kernel config) | `https://github.com/Sype0/pmos-tapas.git` | `5dee84cc5d7939a1042cf9daf2a21e67ab5c3579` |
+| `boot-tapas-safe.img` (the source of the v4 shim that `build-xun.sh` extracts) | `https://github.com/Sype0/pmos-tapas/releases/download/latest/boot-tapas-safe.img` | `latest` |
+| Panel driver generator (used once for `kernel-panel/*.c`) | `https://github.com/msm8916-mainline/linux-mdss-dsi-panel-driver-generator.git` | `28c4df25628f6241ce925af15637a443ea2b3bb5` |
+| AudioReach topology macros | `https://github.com/linux-msm/audioreach-topology.git` | `d6bb205aca5f4b8fa6b2f44cf8b5f6a081cbf037` |
+| FT8203 GENI SPI reference | `https://github.com/RigoLigoRLC/unixnu-nativefocaltech.git` | `master` |
+| `busybox-static`, `apk-tools-static`, Alpine minirootfs | `https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/` | `latest-stable` (3.24) |
+
+Everything lands in `build/src`, `build/tapas-bringup`, `build/tapas-images`,
+`build/tools`, `build/rootfs-work` and `build/downloads`; all of it is out of
+git.
+
+## 2. Firmware
+
+The firmware comes from the tablet itself (stock partitions) and from the
+postmarketOS firmware package for the sibling SM6225 device; it is not
+redistributed here. Put it in `build/firmware`:
+
+| Files | From |
+| --- | --- |
+| `qcom/sm6225/xiaomi/xun/adsp.*` | stock `modem_a`: `mount -t vfat -o ro /dev/disk/by-partlabel/modem_a /mnt` then copy `image/adsp.*` |
+| `qcom/a610_zap.*`, `qcom/a630_sqe.fw` | `firmware-xiaomi-spes` (`https://gitlab.postmarketos.org/sm6225-mainline/firmwares/firmware-xiaomi-spes`), `qcom/sm6225/XIAOMI/SPES/` |
+| `focaltech_ts_fw_boe_ft8203.bin`, `focaltech_ts_fw_huaxing_ft8203.bin` | stock `vendor` partition touch firmware (m84 panel) |
+| `qcom/sm4250/SM6225-Xun-tplg.bin` | built by `build/mktplg.sh` (needs `m4` and `alsatplg`) |
+| `qca/crbtfw13.tlv`, `qca/crnv13.bin` | vendor Bluetooth firmware; the tablet's `bt_firmware` partition only ships `crbtfw{11,20,21}.tlv` |
+
+`config/xun.config` embeds `a610_zap.*`, `a630_sqe.fw`, both touch firmwares
+and the two QCA files into the kernel; the ADSP firmware and the topology are
+added to the initramfs by `build-xun.sh` because those devices probe before
+the rootfs is mounted.
+
+```sh
+./mktplg.sh          # writes firmware/qcom/sm4250/SM6225-Xun-tplg.bin
+```
+
+## 3. Build the boot image
+
+```sh
+./build-xun.sh       # -> out/boot-xun.img
+```
+
+It applies the patches to `src/linux-7.2.1` (once, cached in `work/.patched`),
+installs the xun DTS, panel drivers, FT8203 touch driver and the SH366101 fuel
+gauge, merges `config/xun.config` into the kernel config, builds `Image` and
+`sm6225-xiaomi-xun.dtb`, and packs the v4 boot image with the tapas shim.
+
+The sources of the port are small and tracked:
+
+| Path | What |
+| --- | --- |
+| `build/kernel-dts/sm6225-xiaomi-xun.dts` | the board: display, touch, eMMC/SD, USB, WCN3990, modem, audio, fuel gauge, bootargs |
+| `build/kernel-panel/panel-xiaomi-m84-*.c` | the three M84 panels, generated from the stock DSI nodes |
+| `build/kernel-touch/ft8203-spi.c` | FocalTech FT8203 over GENI SPI |
+| `build/kernel-battery/sh366101.c` | SinoWealth SH366101 fuel gauge (SBS over I2C) |
+| `build/patches/*.patch` | power-off through the PMIC (`qcom-pon`, SCM release of `PS_HOLD`) |
+| `build/config/xun.config` | kernel fragment on top of the tapas base config |
+| `build/topology/SM6225-Xun.m4` | AudioReach topology of the sound card |
+| `build/ucm2/` | ALSA UCM profile (`conf.d/sm4250`, `Qualcomm/sm6225/xun`) |
+| `build/device/` | files installed verbatim on the tablet: `/sbin/init`, `/etc/local.d`, greetd, dnsmasq, time sync |
+
+## 4. Install
+
+```sh
+./deploy-boot.sh out/boot-xun.img   # writes to boot_b, verifies the md5
+ssh -i ssh/xun_key root@172.16.42.1 reboot
+```
+
+The tablet answers on `172.16.42.1` over the USB ECM link (serial console on
+`ttyGS0` of the same cable). A boot takes 60–70 s, GNOME included. `fastboot
+boot out/boot-xun.img` also works and writes nothing; `fastboot flash boot_b`
+is the alternative to the SSH path.
+
+The files in `build/device` and `build/ucm2` are copied to the corresponding
+paths on the tablet (`/sbin/init`, `/etc/...`, `/usr/share/alsa/ucm2/...`).
+
+## 5. Rootfs
+
+`make-rootfs.sh` builds a minimal Alpine image for the early bring-up; the
+installed tablet instead uses a full Alpine 3.24 aarch64 install on the eMMC
+with, among others, `gnome`, `gnome-console`, `firefox`, `ibus-libpinyin`,
+`font-noto-cjk`, `networkmanager`, `wpa_supplicant`, `bluez`, `chrony`,
+`upower`, `polkit`, `elogind`, `greetd`, `tqftpserv`, `rmtfs`, `alsa-utils`
+and `mesa`/`mesa-dri-gallium` for the Adreno 610.
+
+`build/device/etc/local.d` is what wires that up at boot: `50-gnome` starts
+dbus, elogind, polkit and greetd, `60-modem` starts `tqftpserv`/`rmtfs`, the
+modem and ath10k, `70-time` syncs the clock, `10-boot-success` marks the slot.
+
+## 6. Where the data came from
+
+The board knowledge is in [`HARDWARE.md`](HARDWARE.md),
+[`DATA_COLLECTION.md`](DATA_COLLECTION.md) and
+[`reference/`](reference/); the stock device tree, the partition map and the
+audio/display/touch vendor trees are listed in
+[`RESOURCES.md`](RESOURCES.md). The short version:
+
+- stock device tree: decompiled from a full partition dump
+  (`gm-stuffs/redmi_xun_dump`),
+- display panels and touch wiring:
+  `MiCode/vendor_qcom_proprietary_display-devicetree`, branch `xun-t-oss`,
+- power path: `MiCode/Xiaomi_Kernel_OpenSource`, branch `xun-t-oss`
+  (`bq2589x`, `sh366101`, `nopmi_chg`),
+- audio: `MiCode/vendor_qcom_proprietary_audio-kernel` and the tapas tree.
+
+## Status
+
+Working: display (1200×1920, correct orientation), multi-touch, GPU/freedreno,
+Wi-Fi (WCN3990, NetworkManager), eMMC, SD, USB (gadget + host), GNOME on
+Wayland, Chinese locale/input, time sync, battery gauge (SH366101).
+
+Not working yet: Bluetooth HCI registration after the QCA firmware download,
+the BQ2589X charger driver (charging itself is done by the bootloader), and
+audio output (the sound card registers and the ADSP runs; routing and the
+FS1815 amplifiers are missing).

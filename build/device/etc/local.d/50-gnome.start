@@ -1,0 +1,11 @@
+#!/bin/sh
+# The default runlevel does not pick these up on this rootfs, so start them
+# explicitly. greetd wants the session bus, logind and polkit already running,
+# and elogind does not create the seat directory itself.
+/etc/init.d/dbus start
+/etc/init.d/elogind start
+/etc/init.d/polkit start
+mkdir -p /run/systemd/seats
+/etc/init.d/greetd start
+rc-service chronyd start 2>/dev/null
+rc-service bluetooth start 2>/dev/null

@@ -1,0 +1,73 @@
+--- a2/drivers/power/reset/msm-poweroff.c	2026-11-01 02:32:41.278408376 +0800
++++ b2/drivers/power/reset/msm-poweroff.c	2026-11-01 02:36:07.082105165 +0800
+@@ -2,6 +2,7 @@
+ /* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/arm-smccc.h>
+ #include <linux/delay.h>
+ #include <linux/err.h>
+ #include <linux/init.h>
+@@ -13,16 +14,53 @@
+ #include <linux/reboot.h>
+ #include <linux/pm.h>
+ 
++/* QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD from the vendor qcom_scm.h */
++#define QCOM_SCM_SVC_PWR			0x09
++#define QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD	0x02
++#define QCOM_SCM_ARGS_1				0x1
++#define SCM_SMC_FNID(s, c)	((u32)((((s) & 0xff) << 8) | ((c) & 0xff)))
++
+ static void __iomem *msm_ps_hold;
+ 
++/*
++ * The TCSR register is not writable from the non-secure world on this SoC, so
++ * ask the secure monitor to release PS_HOLD; the direct write stays as a
++ * fallback for firmware that does not implement the call.
++ */
++static void qcom_deassert_ps_hold(void)
++{
++	struct arm_smccc_res res;
++
++	arm_smccc_smc(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,
++					 ARM_SMCCC_SMC_64,
++					 ARM_SMCCC_OWNER_SIP,
++					 SCM_SMC_FNID(QCOM_SCM_SVC_PWR,
++						      QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD)),
++		      QCOM_SCM_ARGS_1, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0)
++		pr_err("qcom_scm ps_hold: deassert failed: %ld\n", res.a0);
++}
++
+ static int do_msm_poweroff(struct sys_off_data *data)
+ {
++	qcom_deassert_ps_hold();
+ 	writel(0, msm_ps_hold);
+ 	mdelay(10000);
+ 
+ 	return NOTIFY_DONE;
+ }
+ 
++
++static ssize_t poweroff_now_store(struct device *dev,
++				  struct device_attribute *attr,
++				  const char *buf, size_t count)
++{
++	pr_info("msm-restart: poweroff triggered from sysfs\n");
++	do_msm_poweroff(NULL);
++	return count;
++}
++static DEVICE_ATTR_WO(poweroff_now);
++
+ static int msm_restart_probe(struct platform_device *pdev)
+ {
+ 	msm_ps_hold = devm_platform_ioremap_resource(pdev, 0);
+@@ -36,6 +74,8 @@
+ 				      SYS_OFF_PRIO_DEFAULT, do_msm_poweroff,
+ 				      NULL);
+ 
++	device_create_file(&pdev->dev, &dev_attr_poweroff_now);
++
+ 	return 0;
+ }
+ 

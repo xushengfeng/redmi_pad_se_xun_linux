@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/gnome-shell.real "$@" >>/tmp/gs.log 2>&1

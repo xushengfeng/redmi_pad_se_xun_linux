@@ -1,0 +1,10 @@
+#!/bin/sh
+# chrony normally keeps the clock, but with no NTP reachable yet the Date
+# header of any HTTP answer is good enough to get the year right.
+for url in http://connect.rom.miui.com/generate_204 http://www.baidu.com \
+	http://www.qualcomm.com https://www.google.com/generate_204; do
+	header=$(curl -sI --max-time 5 "$url" | sed -n 's/^[Dd]ate: //p' | tr -d '\r')
+	[ -n "$header" ] || continue
+	date -u -s "$header" >/dev/null 2>&1 && exit 0
+done
+exit 1
