@@ -29,14 +29,10 @@ package() {
 		-t "$_fw"/qcom/sm6225/xiaomi/xun/
 	install -Dm644 firmware/qcom/sm4250/SM6225-Xun-tplg.bin \
 		-t "$_fw"/qcom/sm4250/
-	install -Dm644 firmware/qcom/a630_sqe.fw \
-		-t "$_fw"/qcom/
 	install -Dm644 firmware/qcom/a610_zap.* \
 		-t "$_fw"/qcom/
 	install -Dm644 firmware/focaltech_ts_fw_huaxing_ft8203.bin \
 		firmware/focaltech_ts_fw_boe_ft8203.bin -t "$_fw"/
-	install -Dm644 firmware/qca/crbtfw13.tlv firmware/qca/crnv13.bin \
-		-t "$_fw"/qca/
 
 	install -Dm644 "$srcdir"/30-initramfs-firmware.files \
 		-t "$pkgdir"/usr/share/mkinitfs/files
