@@ -19,6 +19,8 @@ charger driver are still open.
   method, Firefox, GNOME Console, lock screen with the account password.
 - Power: the power key opens the shutdown dialog, and a shutdown powers the
   PMIC down instead of resetting the SoC.
+- Audio: WCD937x behind the AudioReach ADSP, four FS1815 speaker amplifiers,
+  UCM routing and PulseAudio playback.
 - Clock: PMIC RTC, chrony, HTTP fallback.
 - Battery: SH366101 fuel gauge through power_supply/upower.
 
@@ -26,8 +28,6 @@ charger driver are still open.
 
 - Bluetooth: the QCA firmware downloads, but the HCI controller does not
   register on the UART.
-- Audio: the ADSP runs and the sound card registers; the playback routing and
-  the two FS1815 speaker amplifiers are not done.
 - Charger: the BQ2589X is left as the bootloader configured it; no driver.
 - Afterwards: stable Wi-Fi MAC, suspend/resume, sensors, cameras.
 
@@ -37,6 +37,7 @@ charger driver are still open.
 | --- | --- |
 | [`docs/BUILD.md`](docs/BUILD.md) | Build it: download links and revisions, firmware sources, kernel and boot image, install, on-device layout |
 | [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, and how a shutdown reaches the PMIC |
+| [`docs/AUDIO.md`](docs/AUDIO.md) | Speaker path: AudioReach routing, the four FS1815 amplifiers, the UCM profile and testing |
 | [`docs/DEBUG.md`](docs/DEBUG.md) | USB link and serial console, SSH, deploying kernel/rootfs files, fastboot/ADB, collecting state |
 | [`docs/DOWNLOADS.md`](docs/DOWNLOADS.md) | Every downloaded artifact with its URL and revision, where it lands, and how to rebuild it |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |

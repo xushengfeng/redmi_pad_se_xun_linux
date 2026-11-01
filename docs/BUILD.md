@@ -100,6 +100,7 @@ The sources of the port are small and tracked:
 | `build/kernel-panel/panel-xiaomi-m84-*.c` | the three M84 panels, generated from the stock DSI nodes |
 | `build/kernel-touch/ft8203-spi.c` | FocalTech FT8203 over GENI SPI |
 | `build/kernel-battery/sh366101.c` | SinoWealth SH366101 fuel gauge (SBS over I2C) |
+| `build/kernel-audio/fs1815.c` | Foursemi FS1815 speaker amplifiers (I2C, board preset) |
 | `build/patches/*.patch` | power-off through the PMIC (`qcom-pon`, SCM release of `PS_HOLD`) |
 | `build/config/xun.config` | kernel fragment on top of the tapas base config |
 | `build/topology/SM6225-Xun.m4` | AudioReach topology of the sound card |
@@ -136,10 +137,10 @@ with, among others, `gnome`, `gnome-console`, `firefox`, `ibus-libpinyin`,
 `upower`, `polkit`, `elogind`, `gdm`, `tqftpserv`, `rmtfs`, `alsa-utils`
 and `mesa`/`mesa-dri-gallium` for the Adreno 610.
 
-`build/device/etc/local.d` is what wires that up at boot: `50-gnome` starts
-dbus, elogind and polkit, creates `/run/systemd/seats` and starts GDM,
-`60-modem` starts `tqftpserv`/`rmtfs`, the modem and ath10k, `70-time` syncs
-the clock, `10-boot-success` marks the slot.
+`build/device/etc/local.d` is what wires that up at boot: `45-audio` applies
+the UCM speaker profile, `50-gnome` starts dbus, elogind and polkit, creates
+`/run/systemd/seats` and starts GDM, `60-modem` starts `tqftpserv`/`rmtfs`, the
+modem and ath10k, `70-time` syncs the clock, `10-boot-success` marks the slot.
 
 ## 6. Where the data came from
 
@@ -161,9 +162,8 @@ audio/display/touch vendor trees are listed in
 
 Working: display (1200×1920, correct orientation), multi-touch, GPU/freedreno,
 Wi-Fi (WCN3990, NetworkManager), eMMC, SD, USB (gadget + host), GNOME on
-Wayland, Chinese locale/input, time sync, battery gauge (SH366101).
+Wayland, Chinese locale/input, time sync, battery gauge (SH366101), speaker
+audio (WCD937x, four FS1815 amplifiers, UCM routing).
 
 Not working yet: Bluetooth HCI registration after the QCA firmware download,
-the BQ2589X charger driver (charging itself is done by the bootloader), and
-audio output (the sound card registers and the ADSP runs; routing and the
-FS1815 amplifiers are missing).
+and the BQ2589X charger driver (charging itself is done by the bootloader).

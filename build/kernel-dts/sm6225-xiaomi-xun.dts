@@ -354,6 +354,43 @@
 		compatible = "sinowealth,sh366101";
 		reg = <0x55>;
 	};
+
+	/* Second speaker pair; the reset line is shared with its sibling */
+	speaker@34 {
+		compatible = "foursemi,fs1815";
+		reg = <0x34>;
+		foursemi,dev-addr = <0x36>;
+		reset-gpios = <&tlmm 70 GPIO_ACTIVE_LOW>;
+	};
+
+	speaker@35 {
+		compatible = "foursemi,fs1815";
+		reg = <0x35>;
+		foursemi,dev-addr = <0x37>;
+		reset-gpios = <&tlmm 70 GPIO_ACTIVE_LOW>;
+	};
+};
+
+/* First speaker pair */
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+	assigned-clocks = <&gcc GCC_QUPV3_WRAP0_S1_CLK>;
+	assigned-clock-rates = <19200000>;
+
+	speaker@34 {
+		compatible = "foursemi,fs1815";
+		reg = <0x34>;
+		foursemi,dev-addr = <0x34>;
+		reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
+	};
+
+	speaker@35 {
+		compatible = "foursemi,fs1815";
+		reg = <0x35>;
+		foursemi,dev-addr = <0x35>;
+		reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
+	};
 };
 
 /* eMMC: the boot medium (mmcblk0), 8 bits, HS200/HS400 */

@@ -127,6 +127,32 @@ fi
 grep -q 'sh366101' "$PS/Makefile" ||
 	echo 'obj-$(CONFIG_SH366101)	+= sh366101.o' >>"$PS/Makefile"
 
+# --- FS1815 speaker amplifiers --------------------------------------------
+cp "$ROOT"/kernel-audio/*.c "$SRC/sound/soc/codecs/"
+SC=$SRC/sound/soc/codecs
+if ! grep -q 'SND_SOC_FS1815' "$SC/Kconfig"; then
+	cat >"$WORK/fs1815-kconfig" <<'EOF2'
+
+config SND_SOC_FS1815
+	tristate "Foursemi FS1815 speaker amplifier"
+	depends on I2C
+	help
+	  Say Y here to enable the Foursemi FS1815 speaker amplifier of the
+	  Redmi Pad SE. The driver initialises the amplifier from the board
+	  preset and leaves it running behind the WCD937x AUX output.
+
+EOF2
+	python3 - "$SC/Kconfig" "$WORK/fs1815-kconfig" <<'PY'
+import sys
+kconfig, extra = sys.argv[1], open(sys.argv[2]).read()
+text = open(kconfig).read()
+idx = text.rfind("endif")
+open(kconfig, "w").write(text[:idx] + extra + text[idx:])
+PY
+fi
+grep -q 'snd-soc-fs1815' "$SC/Makefile" ||
+	printf 'snd-soc-fs1815-objs := fs1815.o\nobj-$(CONFIG_SND_SOC_FS1815) += snd-soc-fs1815.o\n' >>"$SC/Makefile"
+
 # --- FT8203 SPI touchscreen ----------------------------------------------
 cp "$ROOT"/kernel-touch/*.c "$SRC/drivers/input/touchscreen/"
 TS=$SRC/drivers/input/touchscreen
@@ -189,14 +215,13 @@ fi
 
 # --- config --------------------------------------------------------------
 mkdir -p "$KO"
-if [ ! -f "$KO/.config" ]; then
-	cp "$ROOT"/tapas-bringup/config/base.config "$KO/.config"
-	# the fragment names the firmware directory of this checkout
-	sed "s|@BUILD_DIR@|$ROOT|" "$ROOT"/config/xun.config >"$WORK/xun-fragment.config"
-	cat "$ROOT"/tapas-bringup/config/tapas.config "$WORK/xun-fragment.config" >"$WORK/xun.config"
-	echo "CONFIG_INITRAMFS_SOURCE=\"$WORK/initramfs.list\"" >>"$WORK/xun.config"
-	"$SRC/scripts/kconfig/merge_config.sh" -m -O "$KO" "$KO/.config" "$WORK/xun.config"
-fi
+[ -f "$KO/.config" ] || cp "$ROOT"/tapas-bringup/config/base.config "$KO/.config"
+# The fragment is merged on every build so edits to it take effect; the
+# fragment names the firmware directory of this checkout.
+sed "s|@BUILD_DIR@|$ROOT|" "$ROOT"/config/xun.config >"$WORK/xun-fragment.config"
+cat "$ROOT"/tapas-bringup/config/tapas.config "$WORK/xun-fragment.config" >"$WORK/xun.config"
+echo "CONFIG_INITRAMFS_SOURCE=\"$WORK/initramfs.list\"" >>"$WORK/xun.config"
+"$SRC/scripts/kconfig/merge_config.sh" -m -O "$KO" "$KO/.config" "$WORK/xun.config"
 make -C "$SRC" O="$KO" ARCH=arm64 LLVM=1 olddefconfig
 grep -v '^#' "$WORK/xun.config" | grep . | while IFS= read -r opt; do
 	grep -qxF "$opt" "$KO/.config" || echo "warning: not applied: $opt" >&2

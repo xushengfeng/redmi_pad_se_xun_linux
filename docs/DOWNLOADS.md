@@ -13,7 +13,7 @@ from.
 | Script | What it fetches |
 | --- | --- |
 | `build/fetch-sources.sh` | kernel tarball and SM6225 patches, the tapas bring-up tree and its boot image, the panel-driver generator, the AudioReach m4 macros, the FT8203 reference, Alpine `busybox-static`/`apk-tools-static`/minirootfs |
-| `build/fetch-vendor.sh` | Xiaomi vendor kernel sources used as references while writing the power and fuel-gauge drivers |
+| `build/fetch-vendor.sh` | Xiaomi vendor kernel sources used as references while writing the power, fuel-gauge and speaker drivers |
 
 Both keep what is already there, so running them again only downloads what is
 missing. They are the reproducible way to rebuild `build/` from a clone.
@@ -31,6 +31,8 @@ missing. They are the reproducible way to rebuild `build/` from a clone.
 | FT8203 GENI SPI reference | `https://github.com/RigoLigoRLC/unixnu-nativefocaltech.git` (master) | `build/downloads/ft8203-reference` | 152 KB |
 | Alpine `busybox-static`, `apk-tools-static`, minirootfs | `https://mirrors.tuna.tsinghua.edu.cn/alpine/latest-stable/` (3.24) | `build/tools/`, `build/rootfs-work/` | 6.7 MB |
 | Xiaomi vendor kernel sources | `https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/<rev>/...` at `0418ef63b947c0cfe144074fae559ea9dfc3638e` (branch `xun-t-oss`) | `build/downloads/xun-vendor` | 412 KB, 13 files |
+| Xiaomi vendor audio sources | `https://raw.githubusercontent.com/Xiaomi-Redmi-Pad-SE-Resources/android_kernel_xiaomi_sm6225-modules/<rev>/qcom/opensource/audio-kernel/asoc/codecs/fs1815/...` at `819001a03074d4ba3befd21b996f23cda06e6abb` (branch `lineage-22.2`) | `build/downloads/xun-vendor/audio/fs1815` | 112 KB, 9 files |
+| `fs1815.fsm` (amplifier preset) | the tablet's Android `vendor` logical partition (`/vendor/firmware/fs1815.fsm`, EROFS inside `super`) | `build/firmware/fs1815.fsm` | 2.4 KB |
 | xun stock partition dump | `https://github.com/gm-stuffs/redmi_xun_dump` (branch `missi-user-15-AQ3A.240829.003-OS2.0.1.0.VMUMIXM`) | `build/live/` (local dump); the decompiled DT is in `docs/reference/` and tracked | 643 MB |
 | Firmware | stock tablet partitions and `firmware-xiaomi-spes`; see the table in [`BUILD.md`](BUILD.md#2-firmware) | `build/firmware/` | 18 MB |
 
@@ -50,6 +52,7 @@ above. They are documentation-grade references for the drivers in
 | `drivers/power/reset/qcom-pon.c` | PON driver this port's patch is based on |
 | `drivers/power/supply/nopmi/sh366101_fg.c`, `sh366101_fg.h`, `sh366101_iio.h` | SH366101 register map and SBS protocol behind `build/kernel-battery/sh366101.c` |
 | `drivers/power/supply/nopmi/bq2589x_charger.c`, `.h`, `bq2589x_reg.h` | BQ2589X charger, for the driver that is still missing |
+| `qcom/opensource/audio-kernel/asoc/codecs/fs1815/` | FS1815 register access, preset parser and the tables hardcoded in `build/kernel-audio/fs1815.c`; `build/kernel-audio/fsm-preset.py` parses the same preset file |
 
 ## Firmware
 
@@ -63,6 +66,7 @@ comes from; the files themselves end up in:
 | `build/firmware/focaltech_ts_fw_*_ft8203.bin` | touch firmware from the stock `vendor` partition; embedded into the kernel |
 | `build/firmware/qca/crbtfw13.tlv`, `crnv13.bin` | QCA Bluetooth firmware from the vendor partitions; embedded into the kernel |
 | `build/firmware/qcom/sm4250/SM6225-Xun-tplg.bin` | built locally by `build/mktplg.sh`, put into the initramfs |
+| `build/firmware/fs1815.fsm` | amplifier preset from the Android `vendor` partition, only used to derive the tables (documented in [`AUDIO.md`](AUDIO.md)) |
 
 ## Rebuilding from a fresh clone
 

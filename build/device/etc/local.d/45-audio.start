@@ -1,0 +1,20 @@
+#!/bin/sh
+# Program the AudioReach routing of the sound card once it is registered.
+#
+# MultiMedia1 cannot be opened ("no backend DAIs enabled") until the UCM
+# verb has connected it to RX_CODEC_DMA_RX_0 and the Speaker device has
+# enabled the WCD937x AUX path.  PulseAudio only does that when it selects a
+# port, which is not guaranteed on a fresh profile, so apply the same UCM
+# profile here.
+card=
+for _ in $(seq 30); do
+	card=$(sed -n 's/^ *[0-9][0-9]* \[.*\]: [^-]*- //p' /proc/asound/cards |
+		head -n1)
+	[ -n "$card" ] && break
+	sleep 1
+done
+[ -n "$card" ] || exit 0
+
+printf 'set _verb HiFi\nset _enadev Speaker\n' >/run/ucm-speaker.txt
+alsaucm -c "$card" -b /run/ucm-speaker.txt 2>/dev/null
+rm -f /run/ucm-speaker.txt
