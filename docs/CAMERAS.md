@@ -52,23 +52,50 @@ it identify at probe; upstream the driver is only reachable through ACPI.
   domains on.
 - The GC08A3 driver reads the chip ID register (`0x03f0`) at 0x31 and gets
   `-ENXIO` (no ACK). The HI556 driver does the same at 0x20 and gets `-EIO`.
-- A sweep of every address from 0x08 to 0x77 on both CCI buses, with the
-  MCLK running and the reset line at both levels, finds only the module
-  EEPROMs at `0x51`. The EEPROMs answer even without the sensor rails, which
-  shows that the bus itself is wired correctly.
-- MCLK was verified with `clk_summary`: `gcc_camss_mclk0_clk` /
-  `gcc_camss_mclk1_clk` run at 19.2 MHz, the pins are muxed to `cam_mclk`,
-  the CAMSS GDSC `gcc_camss_top` is on, and the sensor rails report
-  2.8/1.2/1.8 V while the drivers hold them.
-- Re-enabling MCLK after CAMSS is powered, keeping the clocks always on from
-  boot, and forcing CAMSS/CCI runtime-active did not change the result.
+- The modules are installed: the rear module's **CN3927V actuator** answers
+  at CCI0 address `0x0c`, and the module EEPROM at `0x51` answers on both
+  buses with the fuse IDs from `persist`. The rear EEPROM stops answering
+  when the three camera rails are disabled, so the module is powered from
+  the board rails.
+- A full scan of 0x08..0x77 on both buses, with all four MCLK outputs
+  running (gpio 20/21/27/28), the three rails at 2.8/1.2/1.8 V, VAF at 2.8 V
+  and the reset candidates 18/24/19/65 at both levels, finds only `0x0c`
+  (rear actuator), `0x51` (module EEPROM) and `0x59` on CCI1 (answers 0xff,
+  not the HI556 chip ID).
 
-The sensors therefore either do not get one of their rails, are held in reset
-by a line other than GPIO 18/24, or need a power-up step that the generic
-drivers do not perform. The module EEPROMs and the stock camera stack are the
-next sources of truth: booting the stock image and reading
-`/sys/kernel/debug/regulator/regulator_summary` with the camera open would
-show which regulators and GPIOs the vendor stack actually uses.
+### Vendor power sequence
+
+The power-up sequence is in the module's Chromatix data
+(`com.qti.sensormodule.m84_aac_gc08a3_i.bin`, symbol `sensorDriverData` ->
+`powerSetting`). It decodes as:
+
+| Step | Rail | Value | Delay |
+| --- | --- | --- | --- |
+| 1 | VIO | on | 1 ms |
+| 2 | VDIG | on | 5 ms |
+| 3 | VANA | on | 5 ms |
+| 4 | RESET | 1 | 1 ms |
+| 5 | MCLK | 19200000 | 5 ms |
+| 6 | VAF | on | 5 ms |
+
+The GC08A3 driver was changed to follow this order, the MCLK was set to
+19.2 MHz (the value in the sequence) and L19 (VAF) was kept at 2.8 V.
+The sensor still does not answer, so the remaining difference is not the
+power sequence.
+
+The sequence was read with
+[go-chromatix2libcamera](https://github.com/W-Floyd/go-chromatix2libcamera):
+`go-chromatix2libcamera dump -name sensorDriverData <module>.bin` shows the
+`powerSetting` list.
+
+### What is left
+
+The sensor dies are the only part of the module that does not respond while
+the actuator and EEPROM on the same flex do. Either their VANA/DVDD feed is
+not reaching the module (the EEPROM shows VIO works, the actuator shows VAF
+works) or the dies themselves are damaged. The next checks need the
+hardware: measure VANA/DVDD at the camera connector, reseat the module, or
+boot the stock image to see whether the camera works there.
 
 ## Testing on the tablet
 
