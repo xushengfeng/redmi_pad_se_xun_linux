@@ -128,7 +128,7 @@
 &mdss_dsi0 {
 	status = "okay";
 
-	panel@0 {
+	panel: panel@0 {
 		compatible = "xiaomi,m84-35-03-0b";
 		reg = <0>;
 
@@ -544,6 +544,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		vcc-supply = <&pm6125_l9>;
+		/* follow the panel so gesture mode tracks the display state */
+		panel = <&panel>;
 	};
 };
 

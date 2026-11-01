@@ -9,6 +9,7 @@
  * CRC-16/X-25 of the payload.
  */
 
+#include <drm/drm_panel.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
@@ -28,6 +29,12 @@
 #define FT8203_FW_HUAXING		"focaltech_ts_fw_huaxing_ft8203.bin"
 #define FT8203_FW_BOE			"focaltech_ts_fw_boe_ft8203.bin"
 
+/* FocalTech gesture interface, as used by the vendor driver */
+#define FT8203_REG_GESTURE_EN		0xd0
+#define FT8203_REG_GESTURE_DATA		0xd3
+#define FT8203_GESTURE_DATA_LEN		28
+#define FT8203_GESTURE_DOUBLETAP	0x24
+
 struct ft8203 {
 	struct spi_device *spi;
 	struct input_dev *input;
@@ -35,6 +42,11 @@ struct ft8203 {
 	struct mutex lock;		/* serializes transactions */
 	u8 *tx;
 	u8 *rx;
+	struct input_dev *wake_input;
+	bool gesture;
+	struct drm_panel_follower follower;
+	struct delayed_work follower_work;
+	int follower_tries;
 };
 
 static u16 ft8203_crc(const u8 *data, size_t length)
@@ -277,6 +289,138 @@ static int ft8203_load_firmware(struct ft8203 *ts)
 	return 0;
 }
 
+/*
+ * Gesture mode: the controller scans at a low rate and only reports gestures
+ * (the vendor driver enables every gesture type).  It is entered while the
+ * panel is off and left on the first double tap or when the panel comes back.
+ */
+static int ft8203_gesture_enter(struct ft8203 *ts)
+{
+	static const u8 regs[] = { 0xd1, 0xd2, 0xd5, 0xd6, 0xd7, 0xd8 };
+	u8 on = 1, state = 0;
+	int ret, i;
+
+	mutex_lock(&ts->lock);
+	for (i = 0; i < ARRAY_SIZE(regs); i++)
+		ft8203_write(ts, regs[i], &on, 1);
+	ret = ft8203_write(ts, FT8203_REG_GESTURE_EN, &on, 1);
+	if (!ret)
+		ret = ft8203_read(ts, FT8203_REG_GESTURE_EN, &state, 1);
+	mutex_unlock(&ts->lock);
+
+	if (ret || state != 1) {
+		dev_info(&ts->spi->dev, "gesture mode unavailable: %d/%u\n",
+			 ret, state);
+		return ret ? ret : -EOPNOTSUPP;
+	}
+
+	ts->gesture = true;
+	dev_dbg(&ts->spi->dev, "gesture mode on\n");
+	return 0;
+}
+
+static int ft8203_gesture_exit(struct ft8203 *ts)
+{
+	u8 off = 0;
+	int ret = 0;
+
+	if (!ts->gesture)
+		return 0;
+
+	mutex_lock(&ts->lock);
+	ret = ft8203_write(ts, FT8203_REG_GESTURE_EN, &off, 1);
+	mutex_unlock(&ts->lock);
+	ts->gesture = false;
+	return ret;
+}
+
+static int ft8203_panel_enabled(struct drm_panel_follower *follower)
+{
+	struct ft8203 *ts = container_of(follower, struct ft8203, follower);
+
+	if (ts->gesture)
+		dev_dbg(&ts->spi->dev, "gesture mode off\n");
+	return ft8203_gesture_exit(ts);
+}
+
+static int ft8203_panel_disabling(struct drm_panel_follower *follower)
+{
+	struct ft8203 *ts = container_of(follower, struct ft8203, follower);
+
+	return ft8203_gesture_enter(ts);
+}
+
+static const struct drm_panel_follower_funcs ft8203_follower_funcs = {
+	.panel_enabled = ft8203_panel_enabled,
+	.panel_disabling = ft8203_panel_disabling,
+};
+
+/* The panel is probed after the touch controller; retry the link until then. */
+static void ft8203_follower_work(struct work_struct *work)
+{
+	struct ft8203 *ts = container_of(work, struct ft8203,
+					 follower_work.work);
+	int ret;
+
+	ret = devm_drm_panel_add_follower(&ts->spi->dev, &ts->follower);
+	if (ret == -EPROBE_DEFER && ++ts->follower_tries < 30) {
+		schedule_delayed_work(&ts->follower_work,
+				      msecs_to_jiffies(1000));
+		return;
+	}
+	if (ret && ret != -ENODEV)
+		dev_info(&ts->spi->dev, "not following a panel: %d\n", ret);
+}
+
+static void ft8203_cancel_follower(void *data)
+{
+	cancel_delayed_work_sync(data);
+}
+
+static bool ft8203_report_gesture(struct ft8203 *ts)
+{
+	u8 data[FT8203_GESTURE_DATA_LEN];
+	int ret;
+
+	mutex_lock(&ts->lock);
+	ret = ft8203_read(ts, FT8203_REG_GESTURE_DATA, data, sizeof(data));
+	mutex_unlock(&ts->lock);
+
+	if (ret || data[0] != FT8203_GESTURE_DOUBLETAP)
+		return false;
+
+	dev_dbg(&ts->spi->dev, "double tap\n");
+
+	/* Wake the desktop through a small keyboard device: key events from
+	 * the touchscreen itself are not delivered by libinput.
+	 */
+	if (ts->wake_input) {
+		input_report_key(ts->wake_input, KEY_WAKEUP, 1);
+		input_sync(ts->wake_input);
+		input_report_key(ts->wake_input, KEY_WAKEUP, 0);
+		input_sync(ts->wake_input);
+	}
+
+	input_report_key(ts->input, KEY_WAKEUP, 1);
+	input_report_key(ts->input, KEY_WAKEUP, 0);
+	input_mt_slot(ts->input, 0);
+	input_mt_report_slot_state(ts->input, MT_TOOL_FINGER, true);
+	input_report_abs(ts->input, ABS_MT_POSITION_X, 600);
+	input_report_abs(ts->input, ABS_MT_POSITION_Y, 960);
+	input_report_key(ts->input, BTN_TOUCH, 1);
+	input_mt_sync_frame(ts->input);
+	input_sync(ts->input);
+	usleep_range(20000, 30000);
+	input_mt_slot(ts->input, 0);
+	input_mt_report_slot_state(ts->input, MT_TOOL_FINGER, false);
+	input_report_key(ts->input, BTN_TOUCH, 0);
+	input_mt_sync_frame(ts->input);
+	input_sync(ts->input);
+
+	ft8203_gesture_exit(ts);
+	return true;
+}
+
 static void ft8203_report(struct ft8203 *ts, const u8 *buf)
 {
 	struct input_dev *input = ts->input;
@@ -328,6 +472,11 @@ static irqreturn_t ft8203_irq(int irq, void *dev_id)
 	struct ft8203 *ts = dev_id;
 	u8 buf[FT8203_FRAME_BYTES];
 	int ret;
+
+	if (ts->gesture) {
+		ft8203_report_gesture(ts);
+		return IRQ_HANDLED;
+	}
 
 	mutex_lock(&ts->lock);
 	ret = ft8203_read(ts, 0x01, buf, sizeof(buf));
@@ -421,10 +570,24 @@ static int ft8203_probe(struct spi_device *spi)
 		return dev_err_probe(&spi->dev, ret,
 				     "failed to init MT slots\n");
 
+	ts->wake_input = devm_input_allocate_device(&spi->dev);
+	if (ts->wake_input) {
+		ts->wake_input->name = "FT8203 wake key";
+		ts->wake_input->id.bustype = BUS_SPI;
+		ts->wake_input->dev.parent = &spi->dev;
+		input_set_capability(ts->wake_input, EV_KEY, KEY_WAKEUP);
+	}
+
 	ret = input_register_device(input);
 	if (ret)
 		return dev_err_probe(&spi->dev, ret,
 				     "failed to register input\n");
+
+	if (ts->wake_input) {
+		ret = input_register_device(ts->wake_input);
+		if (ret)
+			ts->wake_input = NULL;
+	}
 
 	ret = devm_request_threaded_irq(&spi->dev, spi->irq, NULL,
 					ft8203_irq,
@@ -433,6 +596,12 @@ static int ft8203_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(&spi->dev, ret,
 				     "failed to request irq\n");
+
+	ts->follower.funcs = &ft8203_follower_funcs;
+	INIT_DELAYED_WORK(&ts->follower_work, ft8203_follower_work);
+	devm_add_action_or_reset(&spi->dev, ft8203_cancel_follower,
+				 &ts->follower_work);
+	schedule_delayed_work(&ts->follower_work, 0);
 
 	return 0;
 }

@@ -153,6 +153,24 @@ cat $D/pon_regs                # 5a=04 5b=80 80=a4 ...
 poweroff                       # with USB unplugged: stays off
 ```
 
+## Double-tap to wake
+
+The touch controller follows the panel state through the DRM panel follower
+API (`panel = <&panel>` on the touchscreen node). When the panel is disabled
+(the screen blanked), `build/kernel-touch/ft8203-spi.c` puts the FT8203 into
+its gesture mode (`0xd0` = 1, all gesture types in `0xd1`/`0xd2`/`0xd5`-`0xd8`).
+The controller then scans slowly and only reports gestures.
+
+On a double tap it reads the gesture block from `0xd3` (id `0x24`), reports
+`KEY_WAKEUP` through a small extra keyboard input device, and sends a
+synthetic tap. Key events from the touchscreen device itself are dropped by
+libinput, which is why the wake key is a separate device; GNOME wakes on the
+key/tap and re-enables the panel, and the follower callback leaves gesture
+mode again.
+
+While the panel is off a single tap does nothing; the power key still wakes
+the tablet. The "gesture mode on"/"double tap" messages are at debug level.
+
 ## Files
 
 | File | Role |
