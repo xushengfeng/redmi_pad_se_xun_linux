@@ -43,6 +43,9 @@ cp "$ROOT"/kernel-touch/*.c "$STAGE/xun/"
 cp "$ROOT"/kernel-audio/*.c "$STAGE/xun/"
 cp "$ROOT"/kernel-battery/*.c "$STAGE/xun/"
 cp "$ROOT"/patches/*.patch "$STAGE/xun/patches/"
+# The fourth stable-sm6225 commit; the f5a976a source archive has the first
+# three, and xun needs this one too.
+cp "$ROOT"/src/patches/e127de2a.patch "$STAGE/xun/patches/00-e127de2a.patch"
 cp "$ROOT/config/xun.config" "$STAGE/xun/xun.config"
 cp "$ROOT/tapas-bringup/config/base.config" "$STAGE/xun/base.config"
 cp "$ROOT/tapas-bringup/config/tapas.config" "$STAGE/xun/tapas.config"
