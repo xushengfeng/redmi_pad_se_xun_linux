@@ -63,6 +63,13 @@ if ! grep -q 'in-band sleep protocol off' "$SRC/drivers/bluetooth/hci_qca.c"; th
 		exit 1
 	}
 fi
+# The BQ2589X is a BQ25890-compatible charger with part number 4.
+if ! grep -q 'BQ2589X reports part number 4' "$SRC/drivers/power/supply/bq25890_charger.c"; then
+	patch -d "$SRC" -p1 -s -N <"$ROOT/patches/bq2589x-id.patch" || {
+		echo "BQ2589X patch did not apply cleanly" >&2
+		exit 1
+	}
+fi
 
 # --- board files ---------------------------------------------------------
 cp "$ROOT/kernel-dts/sm6225-xiaomi-xun.dts" "$SRC/$DTS_DIR/"

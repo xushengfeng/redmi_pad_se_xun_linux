@@ -5,8 +5,8 @@ Native mainline Linux support for the Xiaomi Redmi Pad SE 11" tablet
 
 **Status: usable.** Mainline Linux boots on the tablet from slot B into Alpine
 with GNOME on Wayland, and the kernel, the device tree and the drivers for the
-board live in this repository under `build/`. The charger driver is the main
-piece still missing.
+board live in this repository under `build/`. Suspend/resume, the sensors and
+the cameras are the main pieces still missing.
 
 ## What works
 
@@ -23,12 +23,13 @@ piece still missing.
   UCM routing and PulseAudio playback.
 - Bluetooth: QCA combo over UART, firmware download, scanning and pairing.
 - Clock: PMIC RTC, chrony, HTTP fallback.
-- Battery: SH366101 fuel gauge through power_supply/upower.
+- Battery and charging: SH366101 fuel gauge and BQ2589X charger through
+  power_supply/upower, with USB charger type detection.
 
 ## What is missing
 
-- Charger: the BQ2589X is left as the bootloader configured it; no driver.
-- Afterwards: stable Wi-Fi MAC, suspend/resume, sensors, cameras.
+- Suspend/resume, the sensors (accelerometer, hall) and the cameras.
+- USB Power Delivery beyond 5 V, and a per-device Wi-Fi MAC address.
 
 ## Documents
 
@@ -38,6 +39,7 @@ piece still missing.
 | [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, and how a shutdown reaches the PMIC |
 | [`docs/AUDIO.md`](docs/AUDIO.md) | Speaker path: AudioReach routing, the four FS1815 amplifiers, the UCM profile and testing |
 | [`docs/BLUETOOTH.md`](docs/BLUETOOTH.md) | QCA Bluetooth over UART: firmware, the board address, the in-band sleep workaround and testing |
+| [`docs/CHARGER.md`](docs/CHARGER.md) | BQ2589X charger, battery state on AC, USB type detection and what upower sees |
 | [`docs/DEBUG.md`](docs/DEBUG.md) | USB link and serial console, SSH, deploying kernel/rootfs files, fastboot/ADB, collecting state |
 | [`docs/DOWNLOADS.md`](docs/DOWNLOADS.md) | Every downloaded artifact with its URL and revision, where it lands, and how to rebuild it |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |

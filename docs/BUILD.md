@@ -101,7 +101,7 @@ The sources of the port are small and tracked:
 | `build/kernel-touch/ft8203-spi.c` | FocalTech FT8203 over GENI SPI |
 | `build/kernel-battery/sh366101.c` | SinoWealth SH366101 fuel gauge (SBS over I2C) |
 | `build/kernel-audio/fs1815.c` | Foursemi FS1815 speaker amplifiers (I2C, board preset) |
-| `build/patches/*.patch` | power-off through the PMIC (`qcom-pon`, SCM release of `PS_HOLD`) and the QCA Bluetooth in-band sleep workaround |
+| `build/patches/*.patch` | power-off through the PMIC (`qcom-pon`, SCM release of `PS_HOLD`), the BQ2589X part number and the QCA Bluetooth in-band sleep workaround |
 | `build/config/xun.config` | kernel fragment on top of the tapas base config |
 | `build/topology/SM6225-Xun.m4` | AudioReach topology of the sound card |
 | `build/ucm2/` | ALSA UCM profile (`conf.d/sm4250`, `Qualcomm/sm6225/xun`) |
@@ -163,7 +163,7 @@ audio/display/touch vendor trees are listed in
 Working: display (1200×1920, correct orientation), multi-touch, GPU/freedreno,
 Wi-Fi (WCN3990, NetworkManager), Bluetooth (QCA over UART), eMMC, SD, USB
 (gadget + host), GNOME on Wayland, Chinese locale/input, time sync, battery
-gauge (SH366101), speaker audio (WCD937x, four FS1815 amplifiers, UCM routing).
+gauge (SH366101), speaker audio (WCD937x, four FS1815 amplifiers, UCM routing),
+charging (BQ2589X through the bq25890 driver, upower line power).
 
-Not working yet: the BQ2589X charger driver (charging itself is done by the
-bootloader).
+Not ported yet: suspend/resume, sensors, cameras, USB Power Delivery.

@@ -391,6 +391,36 @@
 		foursemi,dev-addr = <0x35>;
 		reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
 	};
+
+	/* BQ2589X charger (register compatible with the BQ25890 driver) */
+	charger@6a {
+		compatible = "ti,bq2589x-1";
+		reg = <0x6a>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <84 IRQ_TYPE_EDGE_FALLING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bq2589x_int_default>;
+
+		ti,charge-current = <2000000>;
+		ti,battery-regulation-voltage = <4450000>;
+		ti,termination-current = <450000>;
+		ti,precharge-current = <128000>;
+		ti,minimum-sys-voltage = <3500000>;
+		ti,boost-voltage = <5000000>;
+		ti,boost-max-current = <1500000>;
+		ti,enable-auto-dpdm;
+		ti,enable-termination;
+	};
+};
+
+&tlmm {
+	bq2589x_int_default: bq2589x-int-default-state {
+		pins = "gpio84";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
 };
 
 /* eMMC: the boot medium (mmcblk0), 8 bits, HS200/HS400 */

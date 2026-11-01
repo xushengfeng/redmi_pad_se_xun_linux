@@ -32,6 +32,7 @@ struct sh366101 {
 	struct delayed_work work;
 	struct mutex lock;
 
+	bool charger_online;
 	int status;
 	int capacity;
 	int voltage_uv;
@@ -70,8 +71,20 @@ static int sh366101_read_signed(struct sh366101 *fg, u8 reg, s16 *val)
 
 static void sh366101_update(struct sh366101 *fg)
 {
+	union power_supply_propval online = { };
+	struct power_supply *charger;
 	u16 u;
 	s16 s;
+
+	/* With a full battery and the charger connected the gauge reports the
+	 * small load current as a discharge; follow the charger's AC state. */
+	charger = power_supply_get_by_name("bq25890-charger-0");
+	if (charger) {
+		if (!power_supply_get_property(charger,
+					       POWER_SUPPLY_PROP_ONLINE, &online))
+			fg->charger_online = online.intval;
+		power_supply_put(charger);
+	}
 
 	mutex_lock(&fg->lock);
 	if (!sh366101_read_word(fg, SH366101_REG_STATUS, &u))
@@ -113,7 +126,8 @@ static int sh366101_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if (fg->status & SH366101_STATUS_FC)
+		if ((fg->status & SH366101_STATUS_FC) ||
+		    (fg->charger_online && fg->capacity >= 99))
 			val->intval = POWER_SUPPLY_STATUS_FULL;
 		else if (fg->current_ua > 0)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;

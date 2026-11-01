@@ -1,0 +1,22 @@
+--- a/drivers/power/supply/bq25890_charger.c	2026-11-01 15:30:51.367360870 +0800
++++ b/drivers/power/supply/bq25890_charger.c	2026-11-01 15:30:51.402050675 +0800
+@@ -1368,6 +1368,11 @@
+ 		bq->chip_version = BQ25890;
+ 		break;
+ 
++	/* Xiaomi's BQ2589X reports part number 4; same register map */
++	case 4:
++		bq->chip_version = BQ25890;
++		break;
++
+ 	/* BQ25892 and BQ25896 share same ID 0 */
+ 	case BQ25896_ID:
+ 		switch (rev) {
+@@ -1702,6 +1707,7 @@
+ 	{ .compatible = "ti,bq25892", },
+ 	{ .compatible = "ti,bq25895", },
+ 	{ .compatible = "ti,bq25896", },
++	{ .compatible = "ti,bq2589x-1", },
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(of, bq25890_of_match);
