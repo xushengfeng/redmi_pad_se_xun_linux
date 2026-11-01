@@ -13,7 +13,7 @@ mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev
 mkdir -p /sys/kernel/config /dev/pts /var/log /var/lib/misc /run
 mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
 mountpoint -q /dev/pts || mount -t devpts devpts /dev/pts
-# elogind, greetd and dbus want a writable /run
+# elogind, GDM and dbus want a writable /run
 mountpoint -q /run || mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run
 mkdir -p /run/systemd/seats /run/user
 

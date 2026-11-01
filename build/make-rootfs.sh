@@ -37,6 +37,20 @@ HASH=$(openssl passwd -6 xun)
 sed -i "s|^root:[^:]*:|root:$HASH:|" "$ROOT/etc/shadow"
 sed -i 's|^root:[^:]*:|root:x:|' "$ROOT/etc/passwd" 2>/dev/null || true
 
+# Desktop user xun (uid/gid 1000), password xun, the account GDM logs in.
+echo "xun:x:1000:1000::/home/xun:/bin/bash" >>"$ROOT/etc/passwd"
+echo "xun:x:1000:" >>"$ROOT/etc/group"
+echo "xun:$HASH:0:0:99999:7:::" >>"$ROOT/etc/shadow"
+for g in wheel audio video input netdev plugdev; do
+	awk -F: -v g="$g" -v OFS=: \
+		'$1 == g { $4 = ($4 == "" ? "xun" : $4 ",xun") } { print }' \
+		"$ROOT/etc/group" >"$ROOT/etc/group.new"
+	mv "$ROOT/etc/group.new" "$ROOT/etc/group"
+done
+mkdir -p "$ROOT/home/xun"
+cp -a "$ROOT/etc/skel/." "$ROOT/home/xun/" 2>/dev/null || true
+chown -R 1000:1000 "$ROOT/home/xun"
+
 # init: rootfs-init.sh is the /sbin/init the installed system runs
 rm -f "$ROOT/sbin/init"
 install -m 755 rootfs-init.sh "$ROOT/sbin/init"

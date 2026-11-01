@@ -1,0 +1,16 @@
+# Defaults for the xun desktop session, installed as the dconf system database
+# by build/deploy-rootfs.sh (dconf update).
+#
+# A short press of the power key opens the shutdown dialog: the kernel has no
+# suspend implementation, so the schema default ('suspend') does nothing.
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='interactive'
+
+# Blank and lock after five minutes of idle, and ask for the account password
+# on the lock screen.
+[org/gnome/desktop/session]
+idle-delay=uint32 300
+
+[org/gnome/desktop/screensaver]
+lock-enabled=true
+lock-delay=uint32 0

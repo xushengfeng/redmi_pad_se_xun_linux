@@ -13,7 +13,7 @@ the port, not the trees and images they are built from.
 | Boot image | Android boot header **v4** with the tapas shim, kernel and DTB in the legacy payload fields |
 | Slot | `boot_b`, slot B active, slot A keeps Android; `qbootctl -m` at boot keeps ABL from falling back to recovery |
 | Rootfs | Alpine 3.24 aarch64 on the internal eMMC, ext4, ~105 GB |
-| Session | greetd autologin of `xun` into GNOME 50 on VT2 (Wayland/mutter, freedreno) |
+| Session | GDM autologin of `xun` into GNOME 50 on Wayland (mutter, freedreno) |
 
 ## Host requirements
 
@@ -94,7 +94,7 @@ The sources of the port are small and tracked:
 | `build/config/xun.config` | kernel fragment on top of the tapas base config |
 | `build/topology/SM6225-Xun.m4` | AudioReach topology of the sound card |
 | `build/ucm2/` | ALSA UCM profile (`conf.d/sm4250`, `Qualcomm/sm6225/xun`) |
-| `build/device/` | files installed verbatim on the tablet: `/sbin/init`, `/etc/local.d`, greetd, dnsmasq, time sync |
+| `build/device/` | files installed verbatim on the tablet: `/etc/local.d`, GDM autologin, dconf defaults (power key, idle lock), dnsmasq, time sync, the session wrappers |
 
 ## 4. Install
 
@@ -109,7 +109,12 @@ boot out/boot-xun.img` also works and writes nothing; `fastboot flash boot_b`
 is the alternative to the SSH path.
 
 The files in `build/device` and `build/ucm2` are copied to the corresponding
-paths on the tablet (`/sbin/init`, `/etc/...`, `/usr/share/alsa/ucm2/...`).
+paths on the tablet (`/etc/...`, `/usr/bin/...`, `/usr/share/alsa/ucm2/...`);
+`/sbin/init` comes from `rootfs-init.sh` when the image is built.
+`build/deploy-rootfs.sh` does the copy from the tablet, creates the `xun`
+account if it is missing and recompiles the system dconf database; the
+account, session manager, lock screen and power key are described in
+[`SESSION.md`](SESSION.md).
 
 ## 5. Rootfs
 
@@ -117,12 +122,13 @@ paths on the tablet (`/sbin/init`, `/etc/...`, `/usr/share/alsa/ucm2/...`).
 installed tablet instead uses a full Alpine 3.24 aarch64 install on the eMMC
 with, among others, `gnome`, `gnome-console`, `firefox`, `ibus-libpinyin`,
 `font-noto-cjk`, `networkmanager`, `wpa_supplicant`, `bluez`, `chrony`,
-`upower`, `polkit`, `elogind`, `greetd`, `tqftpserv`, `rmtfs`, `alsa-utils`
+`upower`, `polkit`, `elogind`, `gdm`, `tqftpserv`, `rmtfs`, `alsa-utils`
 and `mesa`/`mesa-dri-gallium` for the Adreno 610.
 
 `build/device/etc/local.d` is what wires that up at boot: `50-gnome` starts
-dbus, elogind, polkit and greetd, `60-modem` starts `tqftpserv`/`rmtfs`, the
-modem and ath10k, `70-time` syncs the clock, `10-boot-success` marks the slot.
+dbus, elogind and polkit, creates `/run/systemd/seats` and starts GDM,
+`60-modem` starts `tqftpserv`/`rmtfs`, the modem and ath10k, `70-time` syncs
+the clock, `10-boot-success` marks the slot.
 
 ## 6. Where the data came from
 

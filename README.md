@@ -15,8 +15,10 @@ charger driver are still open.
 - GPU: Adreno 610 with freedreno, GNOME/mutter on Wayland.
 - Wi-Fi: WCN3990 with the modem DSP serving the firmware, NetworkManager.
 - Storage and I/O: eMMC rootfs, SD card, USB (gadget and host).
-- Desk: greetd autologin into GNOME 50, Chinese locale and input method,
-  Firefox, GNOME Console.
+- Desk: GDM autologin into GNOME 50 (Wayland), Chinese locale and input
+  method, Firefox, GNOME Console, lock screen with the account password.
+- Power: the power key opens the shutdown dialog, and a shutdown powers the
+  PMIC down instead of resetting the SoC.
 - Clock: PMIC RTC, chrony, HTTP fallback.
 - Battery: SH366101 fuel gauge through power_supply/upower.
 
@@ -34,6 +36,7 @@ charger driver are still open.
 | Document | Contents |
 | --- | --- |
 | [`docs/BUILD.md`](docs/BUILD.md) | Build it: download links and revisions, firmware sources, kernel and boot image, install, on-device layout |
+| [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, and how a shutdown reaches the PMIC |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |
 | [`docs/BRINGUP.md`](docs/BRINGUP.md) | Unlocked-bootloader bring-up runbook: data collection, first v4 boot, minimal DTS, debug checklist |
 | [`docs/HARDWARE.md`](docs/HARDWARE.md) | Device inventory from the stock device tree: display, touch, power, audio, cameras, buses, GPIOs, partitions |

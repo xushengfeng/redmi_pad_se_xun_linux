@@ -1,0 +1,168 @@
+# Session, lock screen, power key and power off
+
+What happens between the kernel and the GNOME desktop on the tablet: which
+account logs in, which display manager runs the session, how the lock screen
+is reached, what the power key does, and how the PMIC is told to power the
+board off instead of resetting it.
+
+## Account
+
+| Account | Password | Used for |
+| --- | --- | --- |
+| `xun` (uid/gid 1000, `/home/xun`, `/bin/bash`) | `xun` | the GNOME session, autologin |
+| `root` | `xun` | the serial/USB console and SSH on `172.16.42.1` |
+
+`build/make-rootfs.sh` creates both while it builds the rootfs image (the
+passwords are SHA-512 hashes written into `/etc/shadow`), and
+`build/deploy-rootfs.sh` creates `xun` if it is missing on an installed
+system. Change the password on the tablet with `passwd` (and `passwd root` for
+the console).
+
+## Display manager and lock screen
+
+The session is run by **GDM** in Wayland mode, with automatic login of `xun`;
+`build/device/etc/gdm/custom.conf` holds that setting. greetd remains
+installed as a manual fallback but is not in the default runlevel.
+
+GDM is not only a convenience here. GNOME Shell 50 decides whether the
+machine can lock at all in `js/misc/loginManager.js`:
+
+```js
+function haveSystemd() {
+    return GLib.access('/run/systemd/seats', 0) >= 0;
+}
+
+export function canLock() {
+    try {
+        const version = ...;  // org.gnome.DisplayManager.Manager.Version
+        return haveSystemd() && versionCompare('3.5.91', version);
+    } catch {
+        return false;
+    }
+}
+```
+
+When `canLock()` is false, `Main.screenShield` is never created: there is no
+lock button in the quick settings, `Super+L` fails with "Could not lock
+screen", and nothing owns `org.gnome.Shell.ScreenShield`. `haveSystemd()` only
+checks for `/run/systemd/seats`, which systemd-logind creates and elogind does
+not, so the bring-up creates that directory itself. Both
+`build/rootfs-init.sh` and `50-gnome.start` do it before GDM starts.
+
+With GDM and the seat directory in place:
+
+- the quick settings menu (top right) shows a **lock icon** next to the power
+  button, which is the touch-friendly way to lock;
+- `Super+L` locks when a keyboard is attached;
+- after five minutes of idle the screen blanks and locks
+  (`idle-delay=300`, `lock-enabled=true`, `lock-delay=0`);
+- unlocking asks for the `xun` password, with the GNOME on-screen keyboard on
+  touch.
+
+The unlock dialog authenticates through GDM (`Gdm.Client` /
+`org.gnome.DisplayManager`); a lock screen without GDM cannot verify the
+password, which is why the display manager is part of this setup.
+
+Check from SSH (the session bus address is the one gnome-shell runs with):
+
+```sh
+P=$(pgrep -u xun -f '/usr/bin/gnome-shell.real$')
+BUS=$(tr '\0' '\n' < /proc/$P/environ | sed -n 's/^DBUS_SESSION_BUS_ADDRESS=//p')
+su xun -c "DBUS_SESSION_BUS_ADDRESS=$BUS XDG_RUNTIME_DIR=/run/user/1000 \
+    gdbus call --session --dest org.gnome.ScreenSaver \
+    --object-path /org/gnome/ScreenSaver \
+    --method org.gnome.ScreenSaver.GetActive"
+loginctl lock-session        # locks
+loginctl unlock-session      # unlocks, as root
+```
+
+## Power key
+
+The kernel has no suspend implementation, so the GNOME default
+`power-button-action='suspend'` made a short press do nothing. The system
+dconf database (`build/device/etc/dconf/db/local.d/00-xun`, installed by
+`deploy-rootfs.sh`) sets it to:
+
+```ini
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='interactive'
+```
+
+A short press opens the shutdown dialog with Restart / Power Off / Cancel. A
+long press still does what the PMIC does on its own (hard reset), independent
+of the OS.
+
+## Power off through the PMIC
+
+On this SoC the AP releases **PS_HOLD** to tell the PMIC to power the board
+down, and the PMIC decides what that means from the PON block:
+
+| Register (PM6125 PON, base `0x800`) | Meaning |
+| --- | --- |
+| `0x85a` `PS_HOLD_RST_CTL` | action on PS_HOLD release: `0x1` warm reset, `0x4` shutdown, `0x7` hard reset (PMIC default) |
+| `0x85b` `PS_HOLD_RST_CTL2` bit 7 | enable PS_HOLD reset action |
+| `0x880` `PON_TRIGGER_EN` | power-on sources: SMPL, RTC, DC_CHG, USB_CHG, PON1, CBLPWR, KPDPWR |
+
+Two things make the default path a reset:
+
+1. the action is left at the hardware default, hard reset (`0x07`);
+2. the PS_HOLD register in the TCSR block (`0x440b000`) does not release
+   PS_HOLD when written from Linux alone, so the plain `writel(0)` of
+   `msm-poweroff` changes nothing and firmware resets the SoC afterwards. The
+   vendor driver asks the secure monitor to do it and keeps the write only as
+   a fallback.
+
+Two kernel patches, both applied by `build/build-xun.sh`, fix that:
+
+- `build/patches/qcom-pon-poweroff.patch` (`drivers/power/reset/qcom-pon.c`):
+  registers a `SYS_OFF_MODE_POWER_OFF_PREPARE` handler that clears
+  `PS_HOLD_RST_CTL2` bit 7, sets `PS_HOLD_RST_CTL` to `0x04` (shutdown),
+  re-enables the action, and clears the DC_CHG/USB_CHG/CBLPWR power-on
+  triggers so external power cannot bring the board back by itself.
+  It also adds two sysfs attributes for bring-up: `pon_regs` (a dump of the
+  registers above) and `poweroff_prepare` (runs the configuration without
+  powering off).
+- `build/patches/msm-poweroff-scm.patch` (`drivers/power/reset/msm-poweroff.c`):
+  before the fallback `writel`, calls the secure monitor with
+  `QCOM_SCM_SVC_PWR` (`0x09`) / `QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD` (`0x02`),
+  which releases PS_HOLD even though the TCSR register is protected.
+
+After a shutdown the PON block records the reason:
+
+```sh
+D=/sys/devices/platform/soc@0/1c40000.spmi/spmi-0/0-00/1c40000.spmi:pmic@0:pon@800
+cat $D/pon_regs       # 5a=04 5b=80 ... c5=02 ... before power off
+```
+
+`c5` (`POFF_REASON1`) reads `0x02`, "PS_HOLD", and the following boot has no
+hard reset bit in `c0` (`PON_REASON1`): the board really lost power.
+
+**Caveat:** while the USB cable is plugged in, the PMIC sees external power
+(CBL, power-on reason `0x40` in `c0`) and starts the board again right after
+the shutdown. That is the normal Qualcomm behaviour of a charger-attached
+device, not a failed power off; unplug the cable to keep the tablet off. The
+power key always starts it.
+
+Test it on the tablet:
+
+```sh
+D=/sys/devices/platform/soc@0/1c40000.spmi/spmi-0/0-00/1c40000.spmi:pmic@0:pon@800
+cat $D/pon_regs                # 5a=07 5b=80 80=e4 ... on a fresh boot
+echo 1 > $D/poweroff_prepare   # set the shutdown type, without powering off
+cat $D/pon_regs                # 5a=04 5b=80 80=a4 ...
+poweroff                       # with USB unplugged: stays off
+```
+
+## Files
+
+| File | Role |
+| --- | --- |
+| `build/make-rootfs.sh` | creates `root` and `xun` with their passwords |
+| `build/deploy-rootfs.sh` | installs `build/device` and `build/ucm2`, creates `xun` if missing, runs `dconf update`, drops greetd from the default runlevel |
+| `build/device/etc/gdm/custom.conf` | GDM autologin of `xun` on Wayland |
+| `build/device/etc/local.d/50-gnome.start` | dbus, elogind, polkit, `/run/systemd/seats`, GDM |
+| `build/device/etc/dconf/db/local.d/00-xun` | power key action, idle time, lock settings |
+| `build/device/usr/bin/gnome-session` | session wrapper: locale `zh_CN.UTF-8`, `XDG_RUNTIME_DIR`, log in `/tmp/session.log` |
+| `build/device/usr/bin/gnome-shell` | shell wrapper, log in `/tmp/gs.log` |
+| `build/patches/qcom-pon-poweroff.patch` | PMIC PS_HOLD action and power-on triggers |
+| `build/patches/msm-poweroff-scm.patch` | PS_HOLD release through the secure monitor |

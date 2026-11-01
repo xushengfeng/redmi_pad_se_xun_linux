@@ -13,6 +13,7 @@ __pycache__/
 build/*
 !build/build-xun.sh
 !build/deploy-boot.sh
+!build/deploy-rootfs.sh
 !build/fetch-sources.sh
 !build/make-rootfs.sh
 !build/mktplg.sh
