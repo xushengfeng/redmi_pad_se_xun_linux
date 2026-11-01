@@ -1,0 +1,48 @@
+# Firmware extracted from the xun stock partitions. The tarball is generated
+# by build/sync-pmaports.sh from build/firmware and is not committed (the
+# blobs are proprietary); see README.md.
+maintainer="xun port <xun@localhost>"
+pkgname=firmware-xiaomi-xun
+pkgver=1
+pkgrel=0
+pkgdesc="Firmware for the Xiaomi Redmi Pad SE 11 (xun)"
+url="https://postmarketos.org"
+arch="aarch64"
+license="proprietary"
+options="!strip !check !archcheck !tracedeps textrels pmb:cross-native"
+
+depends="
+	firmware-qcom-adreno-a630
+	linux-firmware-ath10k
+	linux-firmware-qca
+"
+source="
+	firmware-xiaomi-xun.tar.gz
+	30-initramfs-firmware.files
+"
+builddir="$srcdir"
+
+package() {
+	_fw="$pkgdir/usr/lib/firmware"
+
+	install -Dm644 firmware/qcom/sm6225/xiaomi/xun/* \
+		-t "$_fw"/qcom/sm6225/xiaomi/xun/
+	install -Dm644 firmware/qcom/sm4250/SM6225-Xun-tplg.bin \
+		-t "$_fw"/qcom/sm4250/
+	install -Dm644 firmware/qcom/a630_sqe.fw \
+		-t "$_fw"/qcom/
+	install -Dm644 firmware/qcom/a610_zap.* \
+		-t "$_fw"/qcom/
+	install -Dm644 firmware/focaltech_ts_fw_huaxing_ft8203.bin \
+		firmware/focaltech_ts_fw_boe_ft8203.bin -t "$_fw"/
+	install -Dm644 firmware/qca/crbtfw13.tlv firmware/qca/crnv13.bin \
+		-t "$_fw"/qca/
+
+	install -Dm644 "$srcdir"/30-initramfs-firmware.files \
+		-t "$pkgdir"/usr/share/mkinitfs/files
+}
+
+sha512sums="
+056ac7debf1e481ab9dfc77c8e2f8a85e4aeda40095613d10ab45fc839e7cfa45f908377b5aaf227d7222a3d479f5a03105c7a88820b7d0b30e5bf6767abbab6  firmware-xiaomi-xun.tar.gz
+5637322719c4a4a7495be36cec727fdb7bcfcab7cdf4f41e5420c39eb4d58d67c112999d32cafc4835f63f4b1750e1a13eb2e2e8cab12c6a3603ed4b4ae4f57c  30-initramfs-firmware.files
+"

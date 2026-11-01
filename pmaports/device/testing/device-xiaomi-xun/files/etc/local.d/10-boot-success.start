@@ -1,0 +1,5 @@
+#!/bin/sh
+# Tell ABL this slot booted fine, otherwise it falls back to recovery after a
+# few reboots (Android would do this from init).
+slot=$(qbootctl 2>/dev/null | sed -n "s/^Current slot: _//p")
+[ -n "$slot" ] && qbootctl -m "$slot"

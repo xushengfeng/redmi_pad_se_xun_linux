@@ -1,0 +1,48 @@
+# Reference: <https://postmarketos.org/devicepkg>
+maintainer="xun port <xun@localhost>"
+pkgname=device-xiaomi-xun
+pkgver=1
+pkgrel=0
+pkgdesc="Xiaomi Redmi Pad SE 11 (xun)"
+url="https://postmarketos.org"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+depends="
+	alsa-ucm-conf
+	dconf
+	firmware-xiaomi-xun
+	linux-postmarketos-qcom-sm6225
+	make-dynpart-mappings
+	mesa-vulkan-freedreno
+	postmarketos-base
+	pulseaudio
+	qbootctl
+	swclock-offset
+	tqftpserv
+"
+makedepends="devicepkg-dev"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+"
+
+build() {
+	devicepkg_build "$startdir" "$pkgname"
+}
+
+package() {
+	devicepkg_package "$startdir" "$pkgname"
+
+	# Board files: local.d services, GDM/dconf/NetworkManager/Bluetooth
+	# configuration, session wrappers, the elogind sleep hook and the ALSA
+	# UCM profile.
+	cp -a "$startdir"/files/. "$pkgdir"/
+	find "$pkgdir"/etc/local.d "$pkgdir"/usr/bin "$pkgdir"/usr/local/bin \
+		"$pkgdir"/usr/libexec -type f -exec chmod 755 {} +
+}
+
+sha512sums="
+d3ca83526408527546582dd5f13db3ce6e7ab6f1a5409ead85fb68b9c374032b1b0563cd49a8d2a23454482ede3e67baf617d83cd5721eaeb951572557fdf476  deviceinfo
+040ad495cddfe6f57bbd135146b14baf29657c239ee1457823d8a718adb9a39456d15def9d5fa21ffd8e9447fc002fc5c863d865b969a8bc7402ee0c126d1838  kernel-cmdline.conf
+"

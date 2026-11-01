@@ -1,0 +1,16 @@
+#!/bin/sh
+# WLAN firmware is served to the modem over QRTR/TFTP, and the modem DSP runs
+# it, so bring the helpers up and then the modem itself.
+rc-service tqftpserv start 2>/dev/null
+rc-service rmtfs start 2>/dev/null
+sleep 2
+if [ -e /sys/class/remoteproc/remoteproc0/state ]; then
+	echo start > /sys/class/remoteproc/remoteproc0/state
+fi
+sleep 5
+if [ -e /sys/bus/platform/drivers/ath10k_snoc ]; then
+	echo c800000.wifi > /sys/bus/platform/drivers/ath10k_snoc/unbind 2>/dev/null
+	sleep 1
+	echo c800000.wifi > /sys/bus/platform/drivers/ath10k_snoc/bind 2>/dev/null
+fi
+rc-service networkmanager start 2>/dev/null

@@ -1,0 +1,28 @@
+# Defaults for the xun desktop session, installed as the dconf system database
+# by build/deploy-rootfs.sh (dconf update).
+#
+# A short press of the power key opens the shutdown dialog; suspend is
+# reachable from the quick settings menu and through loginctl.
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='interactive'
+
+# Keep the system awake while on external power: the USB gadget (ECM network
+# and ACM console) is the development link, and the host does not always
+# re-enumerate it after a suspend/resume cycle. On battery the default idle
+# suspend still applies.
+sleep-inactive-ac-type='nothing'
+
+# Touch keyboard for text fields when no hardware keyboard is attached.
+[org/gnome/desktop/a11y/applications]
+screen-keyboard-enabled=true
+
+# Blank after five minutes of idle.
+[org/gnome/desktop/session]
+idle-delay=uint32 300
+
+# The lock screen is off: after resume GNOME Shell cannot create a new IBus
+# input context and the password entry does not accept input. The sleep hook
+# restarts ibus-daemon on resume; re-enable this (and verify) once that is
+# confirmed to fix the unlock dialog.
+[org/gnome/desktop/screensaver]
+lock-enabled=false
