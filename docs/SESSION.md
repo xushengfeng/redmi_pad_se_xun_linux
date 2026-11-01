@@ -171,6 +171,26 @@ mode again.
 While the panel is off a single tap does nothing; the power key still wakes
 the tablet. The "gesture mode on"/"double tap" messages are at debug level.
 
+## Suspend and resume
+
+`loginctl suspend` (and GNOME's power menu entry) puts the SoC into PSCI
+deep suspend. The power key is the reliable wake source; a PMIC RTC alarm
+woke the system only once out of several attempts, so it is not used.
+
+After resuming, the dwc3 controller does not re-enumerate the configfs
+gadget: the host loses the ECM network and the serial console. The elogind
+hook `50-usb-gadget.sh` (in `/usr/libexec/elogind/system-sleep`) unbinds and
+binds dwc3 again, binds the UDC and restores `usb0` and dnsmasq; the gadget
+then comes back a few seconds after the wake. The same hook is the place to
+put anything else that has to be redone after a resume.
+
+**Known problem after a resume:** the shell's IBus input context is gone
+(`Error processing key on IM: ... Object does not exist at path
+/org/freedesktop/IBus/InputContext_2`), so the lock screen does not receive
+a typed password and the session cannot be unlocked. Until that is fixed,
+automatic locking is disabled (`org.gnome.desktop.screensaver lock-enabled
+false`); the screen still blanks on idle and a touch brings it back.
+
 ## Files
 
 | File | Role |
