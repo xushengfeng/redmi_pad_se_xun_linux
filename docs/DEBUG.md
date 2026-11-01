@@ -19,7 +19,13 @@ boot, before the rootfs is mounted:
 
 The gadget is already bound after the boot, so **plugging the cable into a
 running tablet needs nothing enabled on it**. Nothing has to be plugged in at
-boot either; the device enumerates when the cable is connected.
+boot either; unplugging and replugging the cable makes the host see a
+disconnect and a new device a few seconds later. The UDC state tells whether
+the tablet side is attached:
+
+```sh
+cat /sys/class/udc/*/state     # "configured" once the host has enumerated it
+```
 
 On the host, after plugging in:
 
@@ -45,9 +51,13 @@ If no USB device appears at all:
   clears the charger power-on triggers before a shutdown (see
   [`SESSION.md`](SESSION.md)), so plugging the cable does not necessarily start
   a tablet that was shut down on purpose;
-- on a tablet connected over the serial console, check the gadget:
-  `cat /sys/kernel/config/usb_gadget/g1/UDC` (the UDC name, or empty when it is
-  not bound), `ip -br link`, and rebind with
+- if the tablet is running, look at it: `ip -br link` should list `usb0` and
+  `cat /sys/class/udc/*/state` should say `configured`. Unplug and replug the
+  cable; the controller re-enumerates on connect. If the host still shows
+  nothing, reboot the tablet with the cable connected, then check again;
+- on a tablet connected over the serial console, the gadget can be checked and
+  rebound by hand: `cat /sys/kernel/config/usb_gadget/g1/UDC` (the UDC name, or
+  empty when it is not bound) and
   `echo $(ls /sys/class/udc | head -1) >/sys/kernel/config/usb_gadget/g1/UDC`.
 
 ## SSH
