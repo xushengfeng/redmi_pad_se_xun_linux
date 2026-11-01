@@ -499,6 +499,8 @@
 
 /* WCN3990: same rails as the stock icnss node, board data per device */
 &wifi {
+	/* factory address from /persist/wlan/wlan_mac.bin; big-endian */
+	local-mac-address = [30 50 ce 25 91 1c];
 	vdd-0.8-cx-mx-supply = <&pm6125_l8>;
 	vdd-1.8-xo-supply = <&pm6125_l16>;
 	vdd-1.3-rfa-supply = <&pm6125_l17>;
@@ -513,8 +515,8 @@
 
 	bluetooth {
 		compatible = "qcom,wcn3990-bt";
-		/* address from the stock NVM (cmnv13.bin); little-endian */
-		local-bd-address = [02 40 00 12 50 39];
+		/* factory address from /persist/wlan/bt_mac.bin; little-endian */
+		local-bd-address = [1d 91 25 ce 50 30];
 		qcom,bt-sw-ctrl-gpio = <&tlmm 87 GPIO_ACTIVE_HIGH>;
 		vddio-supply = <&pm6125_l9>;
 		vddxo-supply = <&pm6125_l16>;
