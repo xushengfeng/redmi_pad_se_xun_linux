@@ -15,6 +15,7 @@ build/*
 !build/deploy-boot.sh
 !build/deploy-rootfs.sh
 !build/fetch-sources.sh
+!build/fetch-vendor.sh
 !build/make-rootfs.sh
 !build/mktplg.sh
 !build/rootfs-init.sh

@@ -37,6 +37,8 @@ charger driver are still open.
 | --- | --- |
 | [`docs/BUILD.md`](docs/BUILD.md) | Build it: download links and revisions, firmware sources, kernel and boot image, install, on-device layout |
 | [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, and how a shutdown reaches the PMIC |
+| [`docs/DEBUG.md`](docs/DEBUG.md) | USB link and serial console, SSH, deploying kernel/rootfs files, fastboot/ADB, collecting state |
+| [`docs/DOWNLOADS.md`](docs/DOWNLOADS.md) | Every downloaded artifact with its URL and revision, where it lands, and how to rebuild it |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |
 | [`docs/BRINGUP.md`](docs/BRINGUP.md) | Unlocked-bootloader bring-up runbook: data collection, first v4 boot, minimal DTS, debug checklist |
 | [`docs/HARDWARE.md`](docs/HARDWARE.md) | Device inventory from the stock device tree: display, touch, power, audio, cameras, buses, GPIOs, partitions |

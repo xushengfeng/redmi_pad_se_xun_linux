@@ -24,7 +24,11 @@ An x86_64 Linux host with:
 - `curl`, `git`, `m4`, `python3`, `cpio`, `gzip`, `openssl`,
 - `alsatplg` from `alsa-utils` (only to rebuild the audio topology),
 - `android-tools` on the host that flashes, or a second device running it,
+- `picocom` or `screen` for the serial console on `/dev/ttyACM0` (optional),
 - about 40 GB of disk for the kernel tree and the build output.
+
+The port is built on Arch Linux with clang/LLD 23.1, GNU make 4.4, m4 1.4,
+Python 3.14 and the `fastboot`/`adb` from `android-tools`.
 
 ## 1. Fetch what is not in the repository
 
@@ -32,6 +36,12 @@ An x86_64 Linux host with:
 cd build
 ./fetch-sources.sh
 ```
+
+`./fetch-vendor.sh` additionally downloads the Xiaomi vendor kernel sources
+that the power and fuel-gauge drivers were written from. They are not needed
+to build; the files and revisions are listed in
+[`DOWNLOADS.md`](DOWNLOADS.md), together with everything else that is kept
+outside git.
 
 | What | Where from | Revision / file |
 | --- | --- | --- |
@@ -106,7 +116,8 @@ ssh -i ssh/xun_key root@172.16.42.1 reboot
 The tablet answers on `172.16.42.1` over the USB ECM link (serial console on
 `ttyGS0` of the same cable). A boot takes 60–70 s, GNOME included. `fastboot
 boot out/boot-xun.img` also works and writes nothing; `fastboot flash boot_b`
-is the alternative to the SSH path.
+is the alternative to the SSH path. [`DEBUG.md`](DEBUG.md) covers the USB
+link, the serial console and what to do when the tablet does not show up.
 
 The files in `build/device` and `build/ucm2` are copied to the corresponding
 paths on the tablet (`/etc/...`, `/usr/bin/...`, `/usr/share/alsa/ucm2/...`);
