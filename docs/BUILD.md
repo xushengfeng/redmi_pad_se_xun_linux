@@ -25,7 +25,11 @@ An x86_64 Linux host with:
 - `alsatplg` from `alsa-utils` (only to rebuild the audio topology),
 - `android-tools` on the host that flashes, or a second device running it,
 - `picocom` or `screen` for the serial console on `/dev/ttyACM0` (optional),
-- about 40 GB of disk for the kernel tree and the build output.
+- Docker for the full rootfs image. The image builder runs an aarch64 Alpine
+  container (a qemu-aarch64 binfmt handler is registered automatically), so
+  the aarch64 package scripts run instead of failing with `Exec format error`,
+- `e2fsprogs`, `android-tools` (`img2simg`) and about 40 GB of disk for the
+  kernel tree, the rootfs and the images.
 
 The port is built on Arch Linux with clang/LLD 23.1, GNU make 4.4, m4 1.4,
 Python 3.14 and the `fastboot`/`adb` from `android-tools`.
@@ -128,21 +132,66 @@ account if it is missing and recompiles the system dconf database; the
 account, session manager, lock screen and power key are described in
 [`SESSION.md`](SESSION.md).
 
-## 5. Rootfs
+## 5. Full rootfs image
 
-`make-rootfs.sh` builds a minimal Alpine image for the early bring-up; the
-installed tablet instead uses a full Alpine 3.24 aarch64 install on the eMMC
-with, among others, `gnome`, `gnome-console`, `firefox`, `ibus-libpinyin`,
+`build/make-install-image.sh` builds an Alpine 3.24 + GNOME rootfs from the
+same sources as the bring-up system, wraps it in an ext4 image labelled
+`tapas_root` and writes a sparse copy for fastboot. The package list lives in
+`build/install-packages.txt`; it includes the GNOME core apps (Files, Text
+Editor, Calculator, Calendar, Clocks, Weather, Maps, Software, System Monitor,
+Disk Usage, Music, Showtime, Loupe, Papers, Snapshot, Contacts, File Roller,
+Epiphany), Firefox, the Chinese input method and fonts, the audio stack and
+the firmware packages.
+
+```sh
+./build/make-install-image.sh
+# out/xun-install.img (raw, 10G) and out/xun-install.img.sparse
+```
+
+The rootfs is installed with `apk --root` inside an aarch64 container, so
+package triggers compile the GLib schemas, icon caches, font caches, MIME
+database and dconf database. The device files from `build/device`, the UCM
+profile and `build/firmware` are copied in, then `rootfs-init.sh` becomes
+`/sbin/init`. The image is smaller than the `userdata` partition; on the first
+boot `/sbin/init` runs `resize2fs` so the filesystem grows to the partition.
+
+The image can be flashed without Android or adb. Enter fastboot with
+**power + volume-down**, or from the running Linux system write the standard
+`bootonce-bootloader` command to the `misc` partition and reboot:
+
+```sh
+ssh -i build/ssh/xun_key root@172.16.42.1 \
+  "printf 'bootonce-bootloader\0' | dd of=/dev/disk/by-partlabel/misc bs=1 conv=notrunc; sync; reboot"
+```
+
+Then, with the tablet in fastboot:
+
+```sh
+fastboot flash boot_b build/out/boot-xun.img
+fastboot flash userdata build/out/xun-install.img.sparse
+fastboot reboot
+```
+
+`boot_b` is the slot the shim boots; slot A still holds Android. The sparse
+image is the 10G filesystem with the zero blocks omitted; use
+`fastboot -S 256M flash userdata build/out/xun-install.img` instead if a
+fastboot version prefers to create the sparse chunks itself.
+
+## 6. Rootfs layout
+
+`make-rootfs.sh` builds the minimal Alpine image used during the first
+bring-up. The install image from `make-install-image.sh` is a full Alpine
+3.24 aarch64 system with `gnome`, `gnome-apps-core`, `firefox`, `ibus-libpinyin`,
 `font-noto-cjk`, `networkmanager`, `wpa_supplicant`, `bluez`, `chrony`,
 `upower`, `polkit`, `elogind`, `gdm`, `tqftpserv`, `rmtfs`, `alsa-utils`
-and `mesa`/`mesa-dri-gallium` for the Adreno 610.
+and `mesa`/`mesa-vulkan-freedreno` for the Adreno 610.
 
 `build/device/etc/local.d` is what wires that up at boot: `45-audio` applies
 the UCM speaker profile, `50-gnome` starts dbus, elogind and polkit, creates
 `/run/systemd/seats` and starts GDM, `60-modem` starts `tqftpserv`/`rmtfs`, the
 modem and ath10k, `70-time` syncs the clock, `10-boot-success` marks the slot.
 
-## 6. Where the data came from
+## 7. Where the data came from
 
 The board knowledge is in [`HARDWARE.md`](HARDWARE.md),
 [`DATA_COLLECTION.md`](DATA_COLLECTION.md) and

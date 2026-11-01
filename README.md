@@ -5,9 +5,9 @@ Native mainline Linux support for the Xiaomi Redmi Pad SE 11" tablet
 
 **Status: usable.** Mainline Linux boots on the tablet from slot B into Alpine
 with GNOME on Wayland. The kernel, device tree and board drivers live under
-`build/`; `pmaports/` carries the device, kernel and firmware packages for a
-packaged install. The ADSP sensor core and the cameras are the main pieces
-still missing.
+`build/`; `pmaports/` carries the device, kernel and firmware packages, and
+`build/make-install-image.sh` builds a flashable Alpine + GNOME image. The
+ADSP sensor core and the cameras are the main pieces still missing.
 
 ## What works
 
@@ -17,8 +17,11 @@ still missing.
 - Wi-Fi: WCN3990 with the modem DSP serving the firmware, NetworkManager.
 - Storage and I/O: eMMC rootfs, SD card, USB (gadget and host).
 - Desk: GDM autologin into GNOME 50 (Wayland), Chinese locale and libpinyin
-  input, Firefox, GNOME Console, on-screen keyboard. Manual locking works;
-  automatic locking is off until the IBus-after-resume issue is fixed.
+  input, on-screen keyboard. Manual locking works; automatic locking is off
+  until the IBus-after-resume issue is fixed.
+- Apps: GNOME Files, Text Editor, Calculator, Calendar, Clocks, Weather, Maps,
+  Software, System Monitor, Disk Usage, Music, Showtime, Loupe, Papers,
+  Snapshot, Contacts, File Roller, Console, Tweaks, Firefox and Epiphany.
 - Power: the power key opens the shutdown dialog, and a shutdown powers the
   PMIC down instead of resetting the SoC. Deep suspend works with the power
   key as the wake source; the USB gadget is restored on resume.
@@ -33,7 +36,6 @@ still missing.
 
 ## What is missing
 
-- Suspend/resume, the sensors (accelerometer, hall) and the cameras.
 - Cameras: GC08A3 rear and HI556 front are identified and wired in the DTS,
   but the sensor dies do not answer on I2C (`docs/CAMERAS.md`).
 - Accelerometer and ambient light: they live on the ADSP sensor core (SSC),

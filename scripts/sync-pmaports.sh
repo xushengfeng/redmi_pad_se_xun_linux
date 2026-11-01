@@ -25,13 +25,6 @@ mkdir -p "$DEV/files/usr/share/alsa"
 # uses these wrappers around gnome-session.real/gnome-shell.real.
 rm -f "$DEV/files/usr/bin/gnome-session" "$DEV/files/usr/bin/gnome-shell"
 cp -a "$ROOT"/ucm2/. "$DEV/files/usr/share/alsa/ucm2/"
-cat >"$DEV/files/etc/local.d/40-dconf.start" <<'EOF'
-#!/bin/sh
-# Compile /etc/dconf/db/local.d into the system database installed by the
-# device package; dconf only reads the compiled database.
-dconf update
-EOF
-chmod 755 "$DEV/files/etc/local.d/40-dconf.start"
 
 # --- kernel package sources ----------------------------------------------
 STAGE=$(mktemp -d)

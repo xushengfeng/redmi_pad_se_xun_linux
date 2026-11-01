@@ -1,0 +1,85 @@
+# Base system and recovery tools
+alpine-base
+openssh
+openssh-server
+openssh-server-common-openrc
+e2fsprogs
+e2fsprogs-extra
+util-linux
+iproute2
+curl
+ca-certificates
+nano
+htop
+tmux
+bash
+procps
+kmod
+tzdata
+musl-locales
+musl-locales-lang
+usbutils
+pciutils
+dosfstools
+strace
+# OpenRC services (the -openrc subpackages are not pulled automatically)
+eudev
+eudev-hwids
+eudev-openrc
+udev-init-scripts
+dbus
+dbus-openrc
+elogind
+elogind-openrc
+polkit-elogind
+polkit-openrc
+gdm-openrc
+gdm-udev
+networkmanager
+networkmanager-wifi
+networkmanager-cli
+networkmanager-openrc
+bluez
+bluez-openrc
+chrony
+chrony-openrc
+dnsmasq
+# Qualcomm platform helpers
+qbootctl
+qrtr
+rmtfs
+tqftpserv
+iw
+wpa_supplicant
+# Audio
+alsa-utils
+alsa-ucm-conf
+pulseaudio
+pulseaudio-alsa
+pulseaudio-utils
+pulseaudio-bluez
+pulseaudio-openrc
+# Graphics
+mesa-vulkan-freedreno
+mesa-utils
+libdrm-tests
+# GNOME desktop and the common apps
+gnome
+gnome-apps-core
+gdm
+firefox
+file-roller
+gnome-usage
+# Input methods and fonts
+ibus
+ibus-libpinyin
+font-noto-cjk
+font-noto
+font-noto-emoji
+# Firmware used by the tablet
+linux-firmware-ath10k
+linux-firmware-qca
+linux-firmware-qcom
+# Media codecs for Showtime and Firefox
+gst-libav
+gst-plugins-ugly

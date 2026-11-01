@@ -1,4 +1,6 @@
 #!/bin/sh
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PATH
 # /sbin/init of the Alpine rootfs installed on the tablet.
 #
 # The init in the kernel initramfs unbinds the USB gadget before it switches
@@ -24,6 +26,17 @@ if command -v udevd >/dev/null 2>&1; then
 	udevadm settle --timeout=30
 fi
 
+# The flashed image is smaller than the userdata partition. Grow the
+# filesystem once udev has created the by-label links; an already full
+# filesystem is left alone.
+if command -v resize2fs >/dev/null 2>&1; then
+	rootdev=$(awk '$2 == "/" { print $1; exit }' /proc/mounts)
+	case "$rootdev" in
+	/dev/root|"") rootdev=/dev/disk/by-label/tapas_root ;;
+	esac
+	resize2fs "$rootdev" >/dev/null 2>&1 || true
+fi
+
 # USB gadget: serial console on ttyGS0 and the ECM link to the host
 G=/sys/kernel/config/usb_gadget/g1
 if [ -d "$G" ]; then
@@ -38,7 +51,7 @@ fi
 if [ -e /sys/class/net/usb0 ]; then
 	ip link set usb0 up 2>/dev/null
 	ip addr replace 172.16.42.1/24 dev usb0 2>/dev/null
-	/usr/sbin/dnsmasq --conf-file=/etc/dnsmasq.conf
+	/usr/sbin/dnsmasq --conf-file=/etc/dnsmasq-xun.conf
 fi
 if [ -x /usr/sbin/sshd ]; then
 	ssh-keygen -A 2>/dev/null

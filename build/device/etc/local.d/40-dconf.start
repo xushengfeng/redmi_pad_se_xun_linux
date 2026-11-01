@@ -1,0 +1,4 @@
+#!/bin/sh
+# Compile /etc/dconf/db/local.d into the system database; dconf only reads
+# the compiled database.
+dconf update

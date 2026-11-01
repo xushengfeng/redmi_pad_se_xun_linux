@@ -17,6 +17,9 @@ build/*
 !build/fetch-sources.sh
 !build/fetch-vendor.sh
 !build/make-rootfs.sh
+!build/make-install-image.sh
+!build/install-image-inner.sh
+!build/install-packages.txt
 !build/mktplg.sh
 !build/rootfs-init.sh
 !build/usb-proxy.py
