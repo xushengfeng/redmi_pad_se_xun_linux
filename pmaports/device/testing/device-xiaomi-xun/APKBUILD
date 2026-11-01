@@ -47,8 +47,10 @@ package() {
 	# configuration, session wrappers, the elogind sleep hook and the ALSA
 	# UCM profile.
 	cp -a "$startdir"/files/. "$pkgdir"/
-	find "$pkgdir"/etc/local.d "$pkgdir"/usr/bin "$pkgdir"/usr/local/bin \
-		"$pkgdir"/usr/libexec -type f -exec chmod 755 {} +
+	for _d in etc/local.d usr/local/bin usr/libexec; do
+		[ -d "$pkgdir/$_d" ] &&
+			find "$pkgdir/$_d" -type f -exec chmod 755 {} +
+	done
 }
 
 sha512sums="
