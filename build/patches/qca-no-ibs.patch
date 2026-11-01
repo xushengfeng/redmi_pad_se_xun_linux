@@ -1,0 +1,14 @@
+--- a/drivers/bluetooth/hci_qca.c	2026-11-01 15:01:07.984405562 +0800
++++ b/drivers/bluetooth/hci_qca.c	2026-11-01 15:01:07.986100713 +0800
+@@ -2032,7 +2032,10 @@
+ 	ret = qca_uart_setup(hdev, qca_baudrate, soc_type, ver,
+ 			firmware_name, rampatch_name);
+ 	if (!ret) {
+-		clear_bit(QCA_IBS_DISABLED, &qca->flags);
++		/* Keep the in-band sleep protocol off: the controller does not
++		 * answer the HCI init commands once it is allowed to sleep.
++		 */
++		set_bit(QCA_IBS_DISABLED, &qca->flags);
+ 		qca_debugfs_init(hdev);
+ 		hu->hdev->hw_error = qca_hw_error;
+ 		hu->hdev->reset = qca_reset;

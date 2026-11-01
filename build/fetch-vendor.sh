@@ -29,6 +29,7 @@ MOD_URL=$GITHUB_RAW/Xiaomi-Redmi-Pad-SE-Resources/android_kernel_xiaomi_sm6225-m
 #   qcom-pon           vendor PON driver
 #   sh366101           fuel gauge register map and SBS protocol
 #   bq2589x            charger, for the driver that is still missing
+#   hci_qca/btqca      QCA Bluetooth setup and firmware download
 MI_FILES="
 drivers/input/misc/qpnp-power-on.c
 include/linux/input/qpnp-power-on.h
@@ -43,6 +44,8 @@ drivers/power/supply/nopmi/sh366101_iio.h
 drivers/power/supply/nopmi/bq2589x_charger.c
 drivers/power/supply/nopmi/bq2589x_charger.h
 drivers/power/supply/nopmi/bq2589x_reg.h
+drivers/bluetooth/hci_qca.c
+drivers/bluetooth/btqca.c
 "
 
 # FS1815 speaker amplifier: register access, preset parser and the M84 tables

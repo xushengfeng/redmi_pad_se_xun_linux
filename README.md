@@ -5,8 +5,8 @@ Native mainline Linux support for the Xiaomi Redmi Pad SE 11" tablet
 
 **Status: usable.** Mainline Linux boots on the tablet from slot B into Alpine
 with GNOME on Wayland, and the kernel, the device tree and the drivers for the
-board live in this repository under `build/`. Bluetooth, audio output and the
-charger driver are still open.
+board live in this repository under `build/`. The charger driver is the main
+piece still missing.
 
 ## What works
 
@@ -21,13 +21,12 @@ charger driver are still open.
   PMIC down instead of resetting the SoC.
 - Audio: WCD937x behind the AudioReach ADSP, four FS1815 speaker amplifiers,
   UCM routing and PulseAudio playback.
+- Bluetooth: QCA combo over UART, firmware download, scanning and pairing.
 - Clock: PMIC RTC, chrony, HTTP fallback.
 - Battery: SH366101 fuel gauge through power_supply/upower.
 
 ## What is missing
 
-- Bluetooth: the QCA firmware downloads, but the HCI controller does not
-  register on the UART.
 - Charger: the BQ2589X is left as the bootloader configured it; no driver.
 - Afterwards: stable Wi-Fi MAC, suspend/resume, sensors, cameras.
 
@@ -38,6 +37,7 @@ charger driver are still open.
 | [`docs/BUILD.md`](docs/BUILD.md) | Build it: download links and revisions, firmware sources, kernel and boot image, install, on-device layout |
 | [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, and how a shutdown reaches the PMIC |
 | [`docs/AUDIO.md`](docs/AUDIO.md) | Speaker path: AudioReach routing, the four FS1815 amplifiers, the UCM profile and testing |
+| [`docs/BLUETOOTH.md`](docs/BLUETOOTH.md) | QCA Bluetooth over UART: firmware, the board address, the in-band sleep workaround and testing |
 | [`docs/DEBUG.md`](docs/DEBUG.md) | USB link and serial console, SSH, deploying kernel/rootfs files, fastboot/ADB, collecting state |
 | [`docs/DOWNLOADS.md`](docs/DOWNLOADS.md) | Every downloaded artifact with its URL and revision, where it lands, and how to rebuild it |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |

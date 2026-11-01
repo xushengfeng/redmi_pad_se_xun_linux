@@ -55,6 +55,14 @@ if ! grep -q qcom_deassert_ps_hold "$SRC/drivers/power/reset/msm-poweroff.c"; th
 		exit 1
 	}
 fi
+# The QCA Bluetooth controller does not answer the HCI init commands once the
+# in-band sleep protocol is enabled, so keep it off.
+if ! grep -q 'in-band sleep protocol off' "$SRC/drivers/bluetooth/hci_qca.c"; then
+	patch -d "$SRC" -p1 -s -N <"$ROOT/patches/qca-no-ibs.patch" || {
+		echo "QCA no-IBS patch did not apply cleanly" >&2
+		exit 1
+	}
+fi
 
 # --- board files ---------------------------------------------------------
 cp "$ROOT/kernel-dts/sm6225-xiaomi-xun.dts" "$SRC/$DTS_DIR/"

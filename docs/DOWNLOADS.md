@@ -52,6 +52,7 @@ above. They are documentation-grade references for the drivers in
 | `drivers/power/reset/qcom-pon.c` | PON driver this port's patch is based on |
 | `drivers/power/supply/nopmi/sh366101_fg.c`, `sh366101_fg.h`, `sh366101_iio.h` | SH366101 register map and SBS protocol behind `build/kernel-battery/sh366101.c` |
 | `drivers/power/supply/nopmi/bq2589x_charger.c`, `.h`, `bq2589x_reg.h` | BQ2589X charger, for the driver that is still missing |
+| `drivers/bluetooth/hci_qca.c`, `btqca.c` | QCA Bluetooth setup and firmware download, compared while adding the in-band sleep workaround |
 | `qcom/opensource/audio-kernel/asoc/codecs/fs1815/` | FS1815 register access, preset parser and the tables hardcoded in `build/kernel-audio/fs1815.c`; `build/kernel-audio/fsm-preset.py` parses the same preset file |
 
 ## Firmware
@@ -64,7 +65,7 @@ comes from; the files themselves end up in:
 | `build/firmware/qcom/sm6225/xiaomi/xun/adsp.*` | ADSP firmware, copied from the tablet's stock `modem_a` partition; `build-xun.sh` puts it into the initramfs |
 | `build/firmware/qcom/a610_zap.*`, `a630_sqe.fw` | Adreno zap/sqe, from `firmware-xiaomi-spes`; embedded into the kernel |
 | `build/firmware/focaltech_ts_fw_*_ft8203.bin` | touch firmware from the stock `vendor` partition; embedded into the kernel |
-| `build/firmware/qca/crbtfw13.tlv`, `crnv13.bin` | QCA Bluetooth firmware from the vendor partitions; embedded into the kernel |
+| `build/firmware/qca/crbtfw13.tlv`, `crnv13.bin` | stock `bluetooth_a` (`cmbtfw13.tlv`, `cmnv13.bin` under the `cr` names); embedded into the kernel, see [`BLUETOOTH.md`](BLUETOOTH.md) |
 | `build/firmware/qcom/sm4250/SM6225-Xun-tplg.bin` | built locally by `build/mktplg.sh`, put into the initramfs |
 | `build/firmware/fs1815.fsm` | amplifier preset from the Android `vendor` partition, only used to derive the tables (documented in [`AUDIO.md`](AUDIO.md)) |
 

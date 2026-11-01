@@ -483,6 +483,8 @@
 
 	bluetooth {
 		compatible = "qcom,wcn3990-bt";
+		/* address from the stock NVM (cmnv13.bin); little-endian */
+		local-bd-address = [02 40 00 12 50 39];
 		qcom,bt-sw-ctrl-gpio = <&tlmm 87 GPIO_ACTIVE_HIGH>;
 		vddio-supply = <&pm6125_l9>;
 		vddxo-supply = <&pm6125_l16>;

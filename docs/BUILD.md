@@ -70,7 +70,7 @@ redistributed here. Put it in `build/firmware`:
 | `qcom/a610_zap.*`, `qcom/a630_sqe.fw` | `firmware-xiaomi-spes` (`https://gitlab.postmarketos.org/sm6225-mainline/firmwares/firmware-xiaomi-spes`), `qcom/sm6225/XIAOMI/SPES/` |
 | `focaltech_ts_fw_boe_ft8203.bin`, `focaltech_ts_fw_huaxing_ft8203.bin` | stock `vendor` partition touch firmware (m84 panel) |
 | `qcom/sm4250/SM6225-Xun-tplg.bin` | built by `build/mktplg.sh` (needs `m4` and `alsatplg`) |
-| `qca/crbtfw13.tlv`, `qca/crnv13.bin` | vendor Bluetooth firmware; the tablet's `bt_firmware` partition only ships `crbtfw{11,20,21}.tlv` |
+| `qca/crbtfw13.tlv`, `qca/crnv13.bin` | stock `bluetooth_a` partition: copy `image/cmbtfw13.tlv` and `image/cmnv13.bin` under the `cr` names mainline asks for (see [`BLUETOOTH.md`](BLUETOOTH.md)) |
 
 `config/xun.config` embeds `a610_zap.*`, `a630_sqe.fw`, both touch firmwares
 and the two QCA files into the kernel; the ADSP firmware and the topology are
@@ -101,7 +101,7 @@ The sources of the port are small and tracked:
 | `build/kernel-touch/ft8203-spi.c` | FocalTech FT8203 over GENI SPI |
 | `build/kernel-battery/sh366101.c` | SinoWealth SH366101 fuel gauge (SBS over I2C) |
 | `build/kernel-audio/fs1815.c` | Foursemi FS1815 speaker amplifiers (I2C, board preset) |
-| `build/patches/*.patch` | power-off through the PMIC (`qcom-pon`, SCM release of `PS_HOLD`) |
+| `build/patches/*.patch` | power-off through the PMIC (`qcom-pon`, SCM release of `PS_HOLD`) and the QCA Bluetooth in-band sleep workaround |
 | `build/config/xun.config` | kernel fragment on top of the tapas base config |
 | `build/topology/SM6225-Xun.m4` | AudioReach topology of the sound card |
 | `build/ucm2/` | ALSA UCM profile (`conf.d/sm4250`, `Qualcomm/sm6225/xun`) |
@@ -161,9 +161,9 @@ audio/display/touch vendor trees are listed in
 ## Status
 
 Working: display (1200×1920, correct orientation), multi-touch, GPU/freedreno,
-Wi-Fi (WCN3990, NetworkManager), eMMC, SD, USB (gadget + host), GNOME on
-Wayland, Chinese locale/input, time sync, battery gauge (SH366101), speaker
-audio (WCD937x, four FS1815 amplifiers, UCM routing).
+Wi-Fi (WCN3990, NetworkManager), Bluetooth (QCA over UART), eMMC, SD, USB
+(gadget + host), GNOME on Wayland, Chinese locale/input, time sync, battery
+gauge (SH366101), speaker audio (WCD937x, four FS1815 amplifiers, UCM routing).
 
-Not working yet: Bluetooth HCI registration after the QCA firmware download,
-and the BQ2589X charger driver (charging itself is done by the bootloader).
+Not working yet: the BQ2589X charger driver (charging itself is done by the
+bootloader).
