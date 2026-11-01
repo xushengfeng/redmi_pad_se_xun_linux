@@ -12,6 +12,10 @@ power-button-action='interactive'
 # suspend still applies.
 sleep-inactive-ac-type='nothing'
 
+# Touch keyboard for text fields when no hardware keyboard is attached.
+[org/gnome/desktop/a11y/applications]
+screen-keyboard-enabled=true
+
 # Blank after five minutes of idle.
 [org/gnome/desktop/session]
 idle-delay=uint32 300
