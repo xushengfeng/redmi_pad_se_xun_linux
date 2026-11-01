@@ -148,13 +148,16 @@ Confirm on the live unit before investing in the SIA path.
 
 ## Cameras
 
-| Position | Sensor variants | Bus | Notes |
-| --- | --- | --- | --- |
-| Rear 8 MP | GalaxyCore GC08A3 (`m84_aac_gc08a3_i`), HI556 (`m84_aac_hi556_i`) | CCI0, CSIPHY0 | EEPROM + actuator; flash on CCI0 |
-| Front 5 MP | GalaxyCore GC05A2 (`m84_aac_gc05a2_ii`) | CCI0, CSIPHY2 | EEPROM |
+| Position | Sensor on this unit | Variants | Bus | Notes |
+| --- | --- | --- | --- | --- |
+| Rear 8 MP | GalaxyCore **GC08A3** (`m84_aac_gc08a3_i`) | HI556 (`m84_aac_hi556_i`) | CCI0, CSIPHY0 | EEPROM + actuator; flash on CCI0 |
+| Front 5 MP | Hynix **HI556** (`m84_aac_hi556_i`) | GalaxyCore GC05A2 (`m84_aac_gc05a2_ii`) | CCI1, CSIPHY2 | EEPROM |
 
-Stock camera libraries and tuning data are in `vendor/lib{,64}/camera/`.
-Mainline CAMSS/CCI support exists; sensor drivers are a later phase.
+`persist.vendor.camera.mi.module.info` on the unit reports
+`wide=aac_gc08a3_i;front=aac_hi556_i`, and the fuse IDs read back from the
+module EEPROMs match. Stock camera libraries and tuning data are in
+`vendor/lib{,64}/camera/`. Mainline CAMSS/CCI support exists and the sensor
+nodes are in the board DTS; see `docs/CAMERAS.md` for the bring-up state.
 
 ## Sensors, buttons and misc
 
@@ -163,7 +166,7 @@ Mainline CAMSS/CCI support exists; sensor drivers are a later phase.
 | Volume up | PM6125 GPIO 5, active low | `gpio-keys` |
 | Volume down | PMIC resin / PON | `pon_resin` |
 | Power | PMIC PON | `pon_pwrkey` |
-| Hall / cover | TLMM GPIO 66, active low | `hall_key`; stock module `hall_sensor.ko` |
+| Hall / cover | TLMM GPIO 66, active low | `gpio-keys` switch (`SW_LID`, wakeup); stock module `hall_sensor.ko` |
 | Accelerometer / gyro / light / proximity | ADSP SSC (not AP I²C in the stock DT) | Models TBD; stock configs use `bengal_*`/`lsm6dso`/`tmd2725` families. Direct IIO may not be possible without board rework |
 | Vibration | None (tablet) | — |
 | Thermal | PM6125 ADC + charger thermistor | `charger-therm-usr`, `rf_pa1_therm` |

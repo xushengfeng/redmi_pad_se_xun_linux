@@ -85,6 +85,16 @@
 			linux,code = <KEY_VOLUMEUP>;
 			debounce-interval = <15>;
 		};
+
+		/* Stock hall_key: lid/cover switch on TLMM GPIO66 */
+		hall-switch {
+			label = "Hall Switch";
+			gpios = <&tlmm 66 GPIO_ACTIVE_LOW>;
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+			wakeup-source;
+			debounce-interval = <15>;
+		};
 	};
 
 	/* Stock vibrator_gpio: the motor runs while PM6125 GPIO8 is high */
@@ -204,9 +214,10 @@
 			regulator-max-microvolt = <1170000>;
 		};
 
+		/* camera dvdd (stock cam_vdig) */
 		pm6125_l1: l1 {
-			regulator-min-microvolt = <950000>;
-			regulator-max-microvolt = <1150000>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
 		};
 
 		/* USB PHY */
@@ -264,9 +275,10 @@
 			regulator-max-microvolt = <1980000>;
 		};
 
+		/* camera dovdd (stock cam_vio) */
 		pm6125_l13: l13 {
-			regulator-min-microvolt = <1504000>;
-			regulator-max-microvolt = <2000000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 		};
 
 		pm6125_l14: l14 {
@@ -307,9 +319,10 @@
 			regulator-max-microvolt = <3300000>;
 		};
 
+		/* camera avdd (stock cam_vana) */
 		pm6125_l21: l21 {
-			regulator-min-microvolt = <1600000>;
-			regulator-max-microvolt = <3544000>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
 		};
 
 		/* SD card VCC (stock vdd-supply of sdhc_2) */
@@ -1094,5 +1107,103 @@
 	restart@440b000 {
 		compatible = "qcom,pshold";
 		reg = <0x0 0x0440b000 0x0 0x4>;
+	};
+};
+
+/* Cameras: rear GC08A3 on CSIPHY0, front HI556 on CSIPHY2 */
+&tlmm {
+	cam_sensor_mclk0_default: cam-sensor-mclk0-default {
+		pins = "gpio20";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	cam_sensor_mclk1_default: cam-sensor-mclk1-default {
+		pins = "gpio21";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-disable;
+	};
+};
+
+&camss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cam_sensor_mclk0_default &cam_sensor_mclk1_default>;
+	status = "okay";
+
+	ports {
+		port@0 {
+			reg = <0>;
+
+			csiphy0_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <336000000 207000000>;
+				remote-endpoint = <&gc08a3_ep>;
+			};
+		};
+
+		port@2 {
+			reg = <2>;
+
+			csiphy2_ep: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <437000000>;
+				remote-endpoint = <&hi556_ep>;
+			};
+		};
+	};
+};
+
+&cci {
+	status = "okay";
+};
+
+&cci_i2c0 {
+	rear_camera: camera@31 {
+		compatible = "galaxycore,gc08a3";
+		reg = <0x31>;
+
+		clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
+		assigned-clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
+		assigned-clock-rates = <24000000>;
+
+		reset-gpios = <&tlmm 18 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&pm6125_l21>;
+		dvdd-supply = <&pm6125_l1>;
+		dovdd-supply = <&pm6125_l13>;
+
+		port {
+			gc08a3_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <336000000>;
+				remote-endpoint = <&csiphy0_ep>;
+			};
+		};
+	};
+};
+
+&cci_i2c1 {
+	front_camera: camera@20 {
+		compatible = "hynix,hi556";
+		reg = <0x20>;
+
+		clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
+		clock-names = "clk";
+		assigned-clocks = <&gcc GCC_CAMSS_MCLK1_CLK>;
+		assigned-clock-rates = <19200000>;
+
+		reset-gpios = <&tlmm 24 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&pm6125_l21>;
+		dvdd-supply = <&pm6125_l1>;
+		dovdd-supply = <&pm6125_l13>;
+
+		port {
+			hi556_ep: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <437000000>;
+				remote-endpoint = <&csiphy2_ep>;
+			};
+		};
 	};
 };

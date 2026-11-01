@@ -20,6 +20,34 @@ machine driver). The ADSP runs the AudioReach firmware and the front ends and
 graphs come from `qcom/sm4250/SM6225-Xun-tplg.bin`, built by `mktplg.sh` from
 `build/topology/SM6225-Xun.m4`.
 
+## Microphones
+
+Capture uses the reverse path:
+
+```
+internal microphone -> WCD937x ADC1 -> SoundWire uplink (SWR_MIC0)
+  -> TX macro DEC0 -> MultiMedia2 Capture (hw:0,1) -> application
+```
+
+The UCM `Mic` device programs that path. The important control values are
+`TX DEC0 MUX` = `SWR_MIC`, `TX SMIC MUX0` = `SWR_MIC0` and
+`TX_AIF1_CAP Mixer DEC0` = `1`. The `TX SMIC MUX0` items on this machine are
+`SWR_MIC0..11` (not `ADC0`, which some upstream `wcd937x` sequences use), so
+the generic `codecs/wcd937x/HeadphoneMicEnableSeq.conf` values do not apply
+here.
+
+The microphone is mono; PulseAudio exposes it as a stereo source with the
+signal on the left channel.
+
+## Sound server
+
+The image uses PulseAudio (`pulseaudio --start`) started per user session by
+`build/device/etc/xdg/autostart/pulseaudio.desktop`; PipeWire is not installed.
+PulseAudio reads the same UCM profile and exposes
+`alsa_output.platform-sound.HiFi__Speaker__sink` and
+`alsa_input.platform-sound.HiFi__Mic__source`. A recording made while playing
+a 1 kHz tone shows the tone clearly in the microphone spectrum.
+
 ## The amplifiers
 
 | Bus | I2C address | Preset entry | Reset line |
@@ -139,3 +167,6 @@ tables):
 - Amplifier gain is the fixed preset value; volume is the PCM volume.
 - The earpiece and headphone ports have UCM sections but were not tested
   (the tablet has no jack detection populated).
+- The headset microphone UCM section still uses the generic upstream control
+  names and needs the same `SWR_MIC*` adaptation as the internal microphone
+  once a headset is available for testing.

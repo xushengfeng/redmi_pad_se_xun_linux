@@ -63,6 +63,15 @@ if ! grep -q 'in-band sleep protocol off' "$SRC/drivers/bluetooth/hci_qca.c"; th
 		exit 1
 	}
 fi
+# The HI556 is only matched through ACPI upstream; the xun front camera is
+# described in the device tree, and the driver has to identify it at probe.
+if ! grep -q hi556_of_match "$SRC/drivers/media/i2c/hi556.c"; then
+	patch -d "$SRC" -p1 -s -N <"$ROOT/patches/hi556-dt.patch" || {
+		echo "HI556 DT patch did not apply cleanly" >&2
+		exit 1
+	}
+fi
+
 # The BQ2589X is a BQ25890-compatible charger with part number 4.
 if ! grep -q 'BQ2589X reports part number 4' "$SRC/drivers/power/supply/bq25890_charger.c"; then
 	patch -d "$SRC" -p1 -s -N <"$ROOT/patches/bq2589x-id.patch" || {
