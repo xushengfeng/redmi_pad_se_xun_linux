@@ -4,6 +4,10 @@ These are the postmarketOS packages for the Xiaomi Redmi Pad SE 11
 (`xiaomi-xun`), kept next to the bring-up tree so the board files, kernel
 patches and configs have a single source.
 
+Status: the package metadata, on-device files, kernel sources and checksums
+are in place. They have not been build-tested with pmbootstrap on this host;
+the boot-deploy/installer hook is the remaining packaging step.
+
 ## Layout
 
 ```
@@ -31,9 +35,12 @@ proprietary, not committed). The full stock firmware can be extracted from the
 ## Refreshing the packages
 
 The kernel sources, firmware blobs and busybox are generated from the bring-up
-tree:
+tree. First populate `build/`:
 
 ```sh
+./build/fetch-sources.sh        # kernel, tapas bring-up tree, busybox
+# then extract the stock firmware into build/firmware (docs/DOWNLOADS.md)
+
 ./scripts/sync-pmaports.sh
 ```
 

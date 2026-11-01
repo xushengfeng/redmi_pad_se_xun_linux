@@ -4,9 +4,10 @@ Native mainline Linux support for the Xiaomi Redmi Pad SE 11" tablet
 (codename **`xun`**, Qualcomm **SM6225** / Snapdragon 680).
 
 **Status: usable.** Mainline Linux boots on the tablet from slot B into Alpine
-with GNOME on Wayland, and the kernel, the device tree and the drivers for the
-board live in this repository under `build/`. Suspend/resume, the sensors and
-the cameras are the main pieces still missing.
+with GNOME on Wayland. The kernel, device tree and board drivers live under
+`build/`; `pmaports/` carries the device, kernel and firmware packages for a
+packaged install. The ADSP sensor core and the cameras are the main pieces
+still missing.
 
 ## What works
 
@@ -15,12 +16,16 @@ the cameras are the main pieces still missing.
 - GPU: Adreno 610 with freedreno, GNOME/mutter on Wayland.
 - Wi-Fi: WCN3990 with the modem DSP serving the firmware, NetworkManager.
 - Storage and I/O: eMMC rootfs, SD card, USB (gadget and host).
-- Desk: GDM autologin into GNOME 50 (Wayland), Chinese locale and input
-  method, Firefox, GNOME Console, lock screen with the account password.
+- Desk: GDM autologin into GNOME 50 (Wayland), Chinese locale and libpinyin
+  input, Firefox, GNOME Console, on-screen keyboard. Manual locking works;
+  automatic locking is off until the IBus-after-resume issue is fixed.
 - Power: the power key opens the shutdown dialog, and a shutdown powers the
-  PMIC down instead of resetting the SoC.
+  PMIC down instead of resetting the SoC. Deep suspend works with the power
+  key as the wake source; the USB gadget is restored on resume.
 - Audio: WCD937x behind the AudioReach ADSP, four FS1815 speaker amplifiers,
-  UCM routing and PulseAudio playback.
+  UCM routing, PulseAudio playback and internal microphone capture.
+- Sensors: hall/cover switch as `SW_LID`; double-tap on the touchscreen wakes
+  the panel.
 - Bluetooth: QCA combo over UART, firmware download, scanning and pairing.
 - Clock: PMIC RTC, chrony, HTTP fallback.
 - Battery and charging: SH366101 fuel gauge and BQ2589X charger through
@@ -29,14 +34,19 @@ the cameras are the main pieces still missing.
 ## What is missing
 
 - Suspend/resume, the sensors (accelerometer, hall) and the cameras.
-- USB Power Delivery beyond 5 V, and a per-device Wi-Fi MAC address.
+- Cameras: GC08A3 rear and HI556 front are identified and wired in the DTS,
+  but the sensor dies do not answer on I2C (`docs/CAMERAS.md`).
+- Accelerometer and ambient light: they live on the ADSP sensor core (SSC),
+  so there is no automatic rotation or automatic brightness yet.
+- USB Power Delivery beyond 5 V (the official DT has no TCPC node).
 
 ## Documents
 
 | Document | Contents |
 | --- | --- |
 | [`docs/BUILD.md`](docs/BUILD.md) | Build it: download links and revisions, firmware sources, kernel and boot image, install, on-device layout |
-| [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, and how a shutdown reaches the PMIC |
+| [`docs/SESSION.md`](docs/SESSION.md) | Account, display manager, lock screen, power key, suspend/resume and how a shutdown reaches the PMIC |
+| [`docs/CAMERAS.md`](docs/CAMERAS.md) | Camera modules, wiring, the vendor power sequence, bus scans and what is still blocking them |
 | [`docs/AUDIO.md`](docs/AUDIO.md) | Speaker path: AudioReach routing, the four FS1815 amplifiers, the UCM profile and testing |
 | [`docs/BLUETOOTH.md`](docs/BLUETOOTH.md) | QCA Bluetooth over UART: firmware, the board address, the in-band sleep workaround and testing |
 | [`docs/CHARGER.md`](docs/CHARGER.md) | BQ2589X charger, battery state on AC, USB type detection and what upower sees |
@@ -44,6 +54,7 @@ the cameras are the main pieces still missing.
 | [`docs/DOWNLOADS.md`](docs/DOWNLOADS.md) | Every downloaded artifact with its URL and revision, where it lands, and how to rebuild it |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |
 | [`docs/BRINGUP.md`](docs/BRINGUP.md) | Unlocked-bootloader bring-up runbook: data collection, first v4 boot, minimal DTS, debug checklist |
+| [`pmaports/README.md`](pmaports/README.md) | Device, kernel and firmware packages, how to sync them and the remaining boot-deploy step |
 | [`docs/HARDWARE.md`](docs/HARDWARE.md) | Device inventory from the stock device tree: display, touch, power, audio, cameras, buses, GPIOs, partitions |
 | [`docs/RESOURCES.md`](docs/RESOURCES.md) | Existing kernels, ports, drivers, firmware, tooling, and what each one provides |
 | [`docs/DATA_COLLECTION.md`](docs/DATA_COLLECTION.md) | How the stock DTB/DTBO was extracted and what to collect from a live device |
