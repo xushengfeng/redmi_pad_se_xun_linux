@@ -1,5 +1,5 @@
---- a/drivers/bluetooth/hci_qca.c	2026-11-01 15:01:07.984405562 +0800
-+++ b/drivers/bluetooth/hci_qca.c	2026-11-01 15:01:07.986100713 +0800
+--- a/drivers/bluetooth/hci_qca.c	2026-11-01 16:20:20.999321564 +0800
++++ b/drivers/bluetooth/hci_qca.c	2026-11-01 16:20:26.897766682 +0800
 @@ -2032,7 +2032,10 @@
  	ret = qca_uart_setup(hdev, qca_baudrate, soc_type, ver,
  			firmware_name, rampatch_name);
@@ -12,3 +12,18 @@
  		qca_debugfs_init(hdev);
  		hu->hdev->hw_error = qca_hw_error;
  		hu->hdev->reset = qca_reset;
+@@ -2671,6 +2674,14 @@
+ 	    !test_bit(QCA_SSR_TRIGGERED, &qca->flags))
+ 		return 0;
+ 
++	/* With in-band sleep off there is no sleep to negotiate with the
++	 * controller; waiting for QCA_IBS_DISABLED to clear would just time
++	 * out and abort the system suspend.
++	 */
++	if (test_bit(QCA_IBS_DISABLED, &qca->flags) &&
++	    !test_bit(QCA_SSR_TRIGGERED, &qca->flags))
++		return 0;
++
+ 	if (test_bit(QCA_IBS_DISABLED, &qca->flags) ||
+ 	    test_bit(QCA_SSR_TRIGGERED, &qca->flags)) {
+ 		wait_timeout = test_bit(QCA_SSR_TRIGGERED, &qca->flags) ?

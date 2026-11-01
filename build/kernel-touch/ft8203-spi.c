@@ -314,6 +314,9 @@ static int ft8203_gesture_enter(struct ft8203 *ts)
 		return ret ? ret : -EOPNOTSUPP;
 	}
 
+	if (device_may_wakeup(&ts->spi->dev))
+		enable_irq_wake(ts->spi->irq);
+
 	ts->gesture = true;
 	dev_dbg(&ts->spi->dev, "gesture mode on\n");
 	return 0;
@@ -330,6 +333,10 @@ static int ft8203_gesture_exit(struct ft8203 *ts)
 	mutex_lock(&ts->lock);
 	ret = ft8203_write(ts, FT8203_REG_GESTURE_EN, &off, 1);
 	mutex_unlock(&ts->lock);
+
+	if (device_may_wakeup(&ts->spi->dev))
+		disable_irq_wake(ts->spi->irq);
+
 	ts->gesture = false;
 	return ret;
 }
@@ -518,6 +525,7 @@ static int ft8203_probe(struct spi_device *spi)
 
 	ts->spi = spi;
 	mutex_init(&ts->lock);
+	device_init_wakeup(&spi->dev, true);
 
 	spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
