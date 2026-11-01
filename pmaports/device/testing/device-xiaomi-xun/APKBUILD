@@ -11,6 +11,10 @@ options="!check !archcheck"
 replaces="gdm bluez"
 depends="
 	alsa-ucm-conf
+	alsa-utils
+	bluez
+	chrony
+	curl
 	dconf
 	dnsmasq
 	firmware-xiaomi-xun
@@ -18,9 +22,11 @@ depends="
 	linux-postmarketos-qcom-sm6225
 	make-dynpart-mappings
 	mesa-vulkan-freedreno
+	networkmanager
 	postmarketos-base
 	pulseaudio
 	qbootctl
+	rmtfs
 	swclock-offset
 	tqftpserv
 "
