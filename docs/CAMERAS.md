@@ -91,11 +91,23 @@ The sequence was read with
 ### What is left
 
 The sensor dies are the only part of the module that does not respond while
-the actuator and EEPROM on the same flex do. Either their VANA/DVDD feed is
-not reaching the module (the EEPROM shows VIO works, the actuator shows VAF
-works) or the dies themselves are damaged. The next checks need the
-hardware: measure VANA/DVDD at the camera connector, reseat the module, or
-boot the stock image to see whether the camera works there.
+the actuator and EEPROM on the same flex do.
+
+The rails were isolated one at a time by disabling them while reading the
+module EEPROM: it keeps answering without AVDD (L21) or DVDD (L1) and stops
+answering only when DOVDD (L13) is removed. So VIO = L13 is confirmed at the
+module, and the actuator at 0x0c confirms VAF = L19. The VANA/DVDD feed
+cannot be confirmed from the AP.
+
+Also tried without effect: regulator load votes matching the vendor
+`rgltr-load-current` values, 400 kHz CCI, VAF enabled last in the vendor
+order, CAMSS kept runtime-active (so the top GDSC is on before MCLK), all
+four MCLK outputs, reset candidates 18/24/19/65 at both levels, and L20 as
+an alternate 2.8 V VANA rail.
+
+The remaining checks need the hardware: measure VANA/DVDD at the camera
+connector, reseat the module, or boot the stock image to see whether the
+camera works there.
 
 ## Testing on the tablet
 
