@@ -45,4 +45,4 @@ fi
 ip link set usb0 up 2>/dev/null
 ip addr replace 172.16.42.1/24 dev usb0 2>/dev/null
 pkill -x dnsmasq 2>/dev/null
-/usr/sbin/dnsmasq --conf-file=/etc/dnsmasq.conf 2>/dev/null
+/usr/sbin/dnsmasq --conf-file=/etc/dnsmasq-xun.conf 2>/dev/null

@@ -8,8 +8,9 @@
 # checksums in the APKBUILDs. The firmware and busybox blobs stay out of git;
 # only the package metadata and source files are committed.
 set -eu
-ROOT=$(cd "$(dirname "$0")" && pwd)
-PM=$ROOT/../pmaports
+BASE=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$BASE/build
+PM=$BASE/pmaports
 DEV=$PM/device/testing/device-xiaomi-xun
 KPKG=$PM/device/testing/linux-postmarketos-qcom-sm6225
 FWPKG=$PM/device/testing/firmware-xiaomi-xun
@@ -20,6 +21,9 @@ mkdir -p "$DEV/files"
 cp -a "$ROOT"/device/etc "$DEV/files/"
 cp -a "$ROOT"/device/usr "$DEV/files/"
 mkdir -p "$DEV/files/usr/share/alsa"
+# The packaged image keeps the distribution binaries; the bring-up rootfs
+# uses these wrappers around gnome-session.real/gnome-shell.real.
+rm -f "$DEV/files/usr/bin/gnome-session" "$DEV/files/usr/bin/gnome-shell"
 cp -a "$ROOT"/ucm2/. "$DEV/files/usr/share/alsa/ucm2/"
 cat >"$DEV/files/etc/local.d/40-dconf.start" <<'EOF'
 #!/bin/sh
@@ -44,14 +48,14 @@ cp "$ROOT/tapas-bringup/config/base.config" "$STAGE/xun/base.config"
 cp "$ROOT/tapas-bringup/config/tapas.config" "$STAGE/xun/tapas.config"
 cp "$ROOT/tapas-bringup/initramfs/init" "$STAGE/xun/init"
 cp "$ROOT/tools/bin/busybox.static" "$STAGE/xun/busybox.static"
-tar -C "$STAGE" -czf "$KPKG/xun-files.tar.gz" xun
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -C "$STAGE" -cf - xun | gzip -9n > "$KPKG/xun-files.tar.gz"
 
 # The kernel boot initramfs carries the ADSP firmware and the topology, and
 # CONFIG_EXTRA_FIRMWARE points at these files during the build.
-tar -C "$ROOT" -czf "$KPKG/firmware.tar.gz" firmware
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -C "$ROOT" -cf - firmware | gzip -9n > "$KPKG/firmware.tar.gz"
 
 # --- firmware package ----------------------------------------------------
-tar -C "$ROOT" -czf "$FWPKG/firmware-xiaomi-xun.tar.gz" firmware
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -C "$ROOT" -cf - firmware | gzip -9n > "$FWPKG/firmware-xiaomi-xun.tar.gz"
 
 # --- checksums -----------------------------------------------------------
 python3 - "$ROOT" "$DEV" "$KPKG" "$FWPKG" <<'PY'
@@ -68,10 +72,13 @@ def sha(path):
 def set_sums(path, sums):
     text = open(path).read()
     start = text.index('sha512sums="')
-    end = text.index('"\n', start + len('sha512sums="'))
+    end = text.index('"', start + len('sha512sums="'))
     block = 'sha512sums="\n' + ''.join(
         f'{digest}  {name}\n' for name, digest in sums) + '"'
-    open(path, 'w').write(text[:start] + block + text[end + 2:])
+    out = text[:start] + block + text[end + 1:]
+    if not out.endswith('\n'):
+        out += '\n'
+    open(path, 'w').write(out)
 
 # Device package: only the metadata files are sources.
 set_sums(os.path.join(dev, 'APKBUILD'), [

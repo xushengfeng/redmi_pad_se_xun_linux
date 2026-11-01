@@ -8,10 +8,13 @@ url="https://postmarketos.org"
 license="MIT"
 arch="aarch64"
 options="!check !archcheck"
+replaces="gdm bluez"
 depends="
 	alsa-ucm-conf
 	dconf
+	dnsmasq
 	firmware-xiaomi-xun
+	gdm
 	linux-postmarketos-qcom-sm6225
 	make-dynpart-mappings
 	mesa-vulkan-freedreno
