@@ -54,14 +54,19 @@ With GDM and the seat directory in place:
 - the quick settings menu (top right) shows a **lock icon** next to the power
   button, which is the touch-friendly way to lock;
 - `Super+L` locks when a keyboard is attached;
-- after five minutes of idle the screen blanks and locks
-  (`idle-delay=300`, `lock-enabled=true`, `lock-delay=0`);
+- after five minutes of idle the screen blanks (`idle-delay=300`); automatic
+  locking is off by default because the IBus input context does not survive a
+  resume (see "Suspend and resume");
 - unlocking asks for the `xun` password, with the GNOME on-screen keyboard on
-  touch.
+  touch, when locking is enabled.
 
 The unlock dialog authenticates through GDM (`Gdm.Client` /
 `org.gnome.DisplayManager`); a lock screen without GDM cannot verify the
 password, which is why the display manager is part of this setup.
+
+Manual locking works with `lock-enabled=false`; only the automatic lock after
+idle/suspend is off. `lock-enabled=true` can be set again once the resume
+bug below is fixed.
 
 Check from SSH (the session bus address is the one gnome-shell runs with):
 
@@ -78,9 +83,9 @@ loginctl unlock-session      # unlocks, as root
 
 ## Power key
 
-The kernel has no suspend implementation, so the GNOME default
-`power-button-action='suspend'` made a short press do nothing. The system
-dconf database (`build/device/etc/dconf/db/local.d/00-xun`, installed by
+Suspend works (see "Suspend and resume"), but a short press of the power key
+opens the shutdown dialog rather than suspending. The system dconf database
+(`build/device/etc/dconf/db/local.d/00-xun`, installed by
 `deploy-rootfs.sh`) sets it to:
 
 ```ini
@@ -88,7 +93,8 @@ dconf database (`build/device/etc/dconf/db/local.d/00-xun`, installed by
 power-button-action='interactive'
 ```
 
-A short press opens the shutdown dialog with Restart / Power Off / Cancel. A
+A short press opens the shutdown dialog with Restart / Power Off / Cancel;
+suspend is in the system menu / quick settings and via `loginctl suspend`. A
 long press still does what the PMIC does on its own (hard reset), independent
 of the OS.
 
@@ -181,8 +187,15 @@ After resuming, the dwc3 controller does not re-enumerate the configfs
 gadget: the host loses the ECM network and the serial console. The elogind
 hook `50-usb-gadget.sh` (in `/usr/libexec/elogind/system-sleep`) unbinds and
 binds dwc3 again, binds the UDC and restores `usb0` and dnsmasq; the gadget
-then comes back a few seconds after the wake. The same hook is the place to
-put anything else that has to be redone after a resume.
+then comes back a few seconds after the wake. The hook logs to
+`/var/log/xun-sleep.log` and retries the UDC bind once if `usb0` does not
+appear. The same hook is the place to put anything else that has to be redone
+after a resume.
+
+The system dconf keeps the tablet awake on external power
+(`sleep-inactive-ac-type='nothing'`) because the USB gadget is the
+development link and the host does not reliably re-enumerate it after a
+resume. On battery the GNOME default idle suspend (900 s) still applies.
 
 **Known problem after a resume:** the shell's IBus input context is gone
 (`Error processing key on IM: ... Object does not exist at path
