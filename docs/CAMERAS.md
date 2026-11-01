@@ -43,6 +43,13 @@ The aperture is described in `build/kernel-dts/sm6225-xiaomi-xun.dts`:
 `rear_camera` at CCI0 address 0x31 and `front_camera` at CCI1 address 0x20,
 plus the CAMSS endpoints and the MCLK pinmux on GPIO 20/21.
 
+The xun-specific DTBO overlay in the LineageOS device tree prebuilts
+(`aosp-device-tree/prebuilts/dtbo.img`, entries with model "KHAJE IDP nopmi
+xun") was checked as well: it confirms the same sensor nodes (rear CCI0 /
+CSIPHY0, MCLK0 GPIO 20, reset GPIO 18; front CCI1 / CSIPHY2, MCLK1 GPIO 21,
+reset GPIO 24) and the same `L1A`/`L21A`/`L13A` rails, so the board
+description is not an IDP leftover.
+
 `build/patches/hi556-dt.patch` adds OF matching to the HI556 driver and makes
 it identify at probe; upstream the driver is only reachable through ACPI.
 
