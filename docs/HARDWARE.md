@@ -167,7 +167,7 @@ nodes are in the board DTS; see `docs/CAMERAS.md` for the bring-up state.
 | Volume down | PMIC resin / PON | `pon_resin` |
 | Power | PMIC PON | `pon_pwrkey` |
 | Hall / cover | TLMM GPIO 66, active low | `gpio-keys` switch (`SW_LID`, wakeup); stock module `hall_sensor.ko` |
-| Accelerometer / gyro / light / proximity | ADSP SSC (not AP I²C in the stock DT) | Models TBD; stock configs use `bengal_*`/`lsm6dso`/`tmd2725` families. Direct IIO may not be possible without board rework |
+| Accelerometer | ADSP SSC (not AP I²C in the stock DT) | MiraMEMS **mir3da**, reported by the stock sensor HAL (`build/live/sensors.txt`); needs the SLPI/SSC remoteproc, so no AP IIO driver |
 | Vibration | None (tablet) | — |
 | Thermal | PM6125 ADC + charger thermistor | `charger-therm-usr`, `rf_pa1_therm` |
 | microSD | SDHCI `sdhc_2`, CD GPIO 88 | VMMC L22, VQMMC L5 |
