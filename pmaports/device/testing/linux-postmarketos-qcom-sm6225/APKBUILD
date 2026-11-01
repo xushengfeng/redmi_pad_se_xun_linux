@@ -1,6 +1,6 @@
 # Fork of the sm6225-mainline kernel package with the xun board additions.
 # The xun-files.tar.gz and firmware.tar.gz sources are produced by
-# build/sync-pmaports.sh from the bring-up tree; run `abuild checksum` after
+# scripts/sync-pmaports.sh from the bring-up tree; run `abuild checksum` after
 # syncing.
 maintainer="xun port <xun@localhost>"
 pkgname=linux-postmarketos-qcom-sm6225

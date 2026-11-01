@@ -34,7 +34,7 @@ The kernel sources, firmware blobs and busybox are generated from the bring-up
 tree:
 
 ```sh
-./build/sync-pmaports.sh
+./scripts/sync-pmaports.sh
 ```
 
 It copies `build/device` and `build/ucm2` into the device package, rebuilds
@@ -74,7 +74,7 @@ The kernel package installs both `/boot/vmlinuz` (Image.gz) and `/boot/Image`
 
 ## Firmware
 
-`build/sync-pmaports.sh` builds the firmware tarballs from `build/firmware`,
+`scripts/sync-pmaports.sh` builds the firmware tarballs from `build/firmware`,
 which contains only the files this port uses (ADSP, GPU zap, touch, QCA BT and
 the AudioReach topology). For a complete stock set, mount the vendor partition
 and copy the `firmware` and `vendor/firmware` trees before syncing.

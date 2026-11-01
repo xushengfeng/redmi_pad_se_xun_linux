@@ -1,5 +1,5 @@
 # Firmware extracted from the xun stock partitions. The tarball is generated
-# by build/sync-pmaports.sh from build/firmware and is not committed (the
+# by scripts/sync-pmaports.sh from build/firmware and is not committed (the
 # blobs are proprietary); see README.md.
 maintainer="xun port <xun@localhost>"
 pkgname=firmware-xiaomi-xun
