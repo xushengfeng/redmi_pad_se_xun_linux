@@ -55,6 +55,12 @@ touched. Review `/etc/*.apk-new` after the upgrade, then reboot (or restart
 the affected service). The kernel is not an Alpine package here, so
 `apk upgrade` never changes `boot_b`.
 
+The port puts wrappers at `/usr/bin/gnome-session` and
+`/usr/bin/gnome-shell` to force the Chinese locale and keep session logs. An
+upgrade of those two packages replaces the wrapper with the new binary.
+After such an upgrade run `./deploy-rootfs.sh` on the tablet: it moves the
+new binary to `.real` and puts the wrapper back.
+
 Keep `/etc/apk/repositories` on Alpine 3.24 (`latest-stable`). Switching to
 `edge` may pull a GNOME/GDM combination that the xun packages are not tested
 with; if you do, back up first.

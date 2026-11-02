@@ -22,6 +22,17 @@ fi
 # GDM runs the session; greetd stays installed as a manual fallback.
 rc-update del greetd default 2>/dev/null || true
 
+# gnome-session/gnome-shell are wrappers around the distribution binaries
+# (see build/device/usr/bin). A package upgrade replaces the wrapper with the
+# new binary; move that binary aside so the wrapper can go back in front of
+# it instead of copying the old .real over the new version.
+for b in gnome-session gnome-shell; do
+	if [ -f "/usr/bin/$b" ] &&
+		! grep -q "/usr/bin/$b.real" "/usr/bin/$b" 2>/dev/null; then
+		mv "/usr/bin/$b" "/usr/bin/$b.real"
+	fi
+done
+
 cp -a "$ROOT/device/." /
 cp -a "$ROOT/ucm2/." /usr/share/alsa/ucm2/
 chmod +x /etc/local.d/*.start 2>/dev/null || true
