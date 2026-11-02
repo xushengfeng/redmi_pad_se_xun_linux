@@ -1,0 +1,36 @@
+#!/bin/sh
+# Keep the USB gadget usable across cable unplug/replug.
+#
+# The dwc3 gadget does not always re-arm its pull-up after the cable has been
+# removed while Linux is running; the host then sees no new USB device even
+# though the tablet is alive.  Watch the UDC state and rebound it after a few
+# seconds without a configured link.  Re-apply the ECM address and DHCP
+# server as well, because usb0 may be recreated by the rebind.
+(
+	while :; do
+		sleep 2
+
+		udc=$(ls /sys/class/udc 2>/dev/null | head -n1)
+		[ -n "$udc" ] || continue
+		state=$(cat "/sys/class/udc/$udc/state" 2>/dev/null)
+		[ "$state" = "configured" ] && { miss=0; continue; }
+
+		miss=$(( ${miss:-0} + 1 ))
+		[ "$miss" -lt 3 ] && continue
+		miss=0
+
+		G=/sys/kernel/config/usb_gadget/g1
+		[ -d "$G" ] || continue
+		echo "" >"$G/UDC" 2>/dev/null
+		sleep 0.2
+		echo "$udc" >"$G/UDC" 2>/dev/null
+
+		if [ -e /sys/class/net/usb0 ]; then
+			ip link set usb0 up 2>/dev/null
+			ip addr replace 172.16.42.1/24 dev usb0 2>/dev/null
+			if ! pgrep -x dnsmasq >/dev/null 2>&1; then
+				/usr/sbin/dnsmasq --conf-file=/etc/dnsmasq-xun.conf 2>/dev/null
+			fi
+		fi
+	done
+) &
