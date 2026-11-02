@@ -262,7 +262,7 @@ panel_m84_35_03_0bp_create_backlight(struct mipi_dsi_device *dsi)
 	const struct backlight_properties props = {
 		.type = BACKLIGHT_RAW,
 		.brightness = 2047,
-		.max_brightness = 2047,
+		.max_brightness = 4095,
 	};
 
 	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
