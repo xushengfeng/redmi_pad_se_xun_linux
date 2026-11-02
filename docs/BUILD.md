@@ -140,7 +140,7 @@ account, session manager, lock screen and power key are described in
 `build/make-install-image.sh` builds an Alpine 3.24 + GNOME rootfs from the
 same sources as the bring-up system, wraps it in an ext4 image labelled
 `tapas_root` and writes a sparse copy for fastboot. The package list lives in
-`build/install-packages.txt`; it includes the GNOME core apps (Files, Text
+`build/install-packages.txt`; the translations come from `build/lang-packages.txt`, and it includes the GNOME core apps (Files, Text
 Editor, Calculator, Calendar, Clocks, Weather, Maps, Software, System Monitor,
 Disk Usage, Music, Showtime, Loupe, Papers, Snapshot, Contacts, File Roller,
 Epiphany), Firefox, the Chinese input method and fonts, the audio stack and

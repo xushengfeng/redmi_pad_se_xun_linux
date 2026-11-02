@@ -2,5 +2,6 @@
 [ -n "$XDG_RUNTIME_DIR" ] || export XDG_RUNTIME_DIR=/run/user/$(id -u)
 export LANG=zh_CN.UTF-8
 export LC_ALL=zh_CN.UTF-8
+export LANGUAGE=zh_CN:zh
 export XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-wayland}
 exec /usr/bin/gnome-session.real "$@" >>/tmp/session.log 2>&1

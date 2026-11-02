@@ -24,8 +24,9 @@ tar -xzf "$BASE/rootfs-work/mini.tar.gz" -C "$ROOT"
 # the target (aarch64 binaries through binfmt), so triggers compile schemas,
 # icon caches and font caches for us.
 printf '%s\n' "$MIRROR/main" "$MIRROR/community" >"$ROOT/etc/apk/repositories"
-PKGS=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$BASE/install-packages.txt" |
-	grep -v '^$' | tr '\n' ' ')
+PKGS=$( { sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$BASE/install-packages.txt"
+	sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$BASE/lang-packages.txt"; } |
+	grep -v '^$' | sort -u | tr '\n' ' ')
 # shellcheck disable=SC2086
 apk --root "$ROOT" --arch aarch64 --allow-untrusted \
 	--cache-dir "$WORK/apk-cache" \

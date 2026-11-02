@@ -21,6 +21,7 @@ build/*
 !build/make-install-image.sh
 !build/install-image-inner.sh
 !build/install-packages.txt
+!build/lang-packages.txt
 !build/mktplg.sh
 !build/rootfs-init.sh
 !build/usb-proxy.py
