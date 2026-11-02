@@ -69,9 +69,13 @@ with; if you do, back up first.
 
 The on-device files live in `build/device` and `build/ucm2`:
 
+From the host:
+
 ```sh
-cd build
-./deploy-rootfs.sh                  # run on the tablet as root
+ssh -i build/ssh/xun_key root@172.16.42.1 'rm -rf /tmp/xun-deploy; mkdir -p /tmp/xun-deploy'
+scp -r -i build/ssh/xun_key build/device build/ucm2 build/deploy-rootfs.sh \
+	root@172.16.42.1:/tmp/xun-deploy/
+ssh -i build/ssh/xun_key root@172.16.42.1 'cd /tmp/xun-deploy && ./deploy-rootfs.sh'
 ```
 
 It copies the files, creates the `xun` account if missing, runs `dconf
