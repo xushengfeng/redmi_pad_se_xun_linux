@@ -218,42 +218,19 @@ static int panel_m84_35_03_0bp_bl_update_status(struct backlight_device *bl)
 {
 	struct mipi_dsi_device *dsi = bl_get_data(bl);
 	u16 brightness = backlight_get_brightness(bl);
-	int ret;
 
-	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
-
-	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
-	if (ret < 0)
-		return ret;
-
-	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
-
-	return 0;
-}
-
-// TODO: Check if /sys/class/backlight/.../actual_brightness actually returns
-// correct values. If not, remove this function.
-static int panel_m84_35_03_0bp_bl_get_brightness(struct backlight_device *bl)
-{
-	struct mipi_dsi_device *dsi = bl_get_data(bl);
-	u16 brightness;
-	int ret;
-
-	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
-
-	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
-	if (ret < 0)
-		return ret;
-
-	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
-
-	return brightness;
+	/* The init sequence sends DCS commands in LP mode.  Toggling
+	 * MIPI_DSI_MODE_LPM off for a single command while video is
+	 * running produces FIFO/timeout errors and can wedge the DSI
+	 * link, so keep the panel in its normal LP mode.
+	 */
+	return mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
 }
 
 static const struct backlight_ops panel_m84_35_03_0bp_bl_ops = {
 	.update_status = panel_m84_35_03_0bp_bl_update_status,
-	.get_brightness = panel_m84_35_03_0bp_bl_get_brightness,
 };
+
 
 static struct backlight_device *
 panel_m84_35_03_0bp_create_backlight(struct mipi_dsi_device *dsi)
