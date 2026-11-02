@@ -1,0 +1,4 @@
+#!/bin/sh
+# The boot-time time-sync runs before Wi-Fi is associated; try again whenever
+# a connection comes up.
+[ "$2" = up ] && /usr/local/bin/time-sync >/dev/null 2>&1 &

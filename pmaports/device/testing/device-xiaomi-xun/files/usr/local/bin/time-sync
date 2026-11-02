@@ -1,10 +1,21 @@
 #!/bin/sh
-# chrony normally keeps the clock, but with no NTP reachable yet the Date
-# header of any HTTP answer is good enough to get the year right.
+# chrony keeps the clock once it has a source, but on a fresh boot the network
+# is not up yet and the RTC reads 1970. Wait for a default route, then take
+# the Date header of any reachable HTTP answer.
+i=0
+while [ "$i" -lt 60 ]; do
+	ip route 2>/dev/null | grep -q '^default ' && break
+	i=$((i + 1))
+	sleep 5
+done
+
 for url in http://connect.rom.miui.com/generate_204 http://www.baidu.com \
 	http://www.qualcomm.com https://www.google.com/generate_204; do
 	header=$(curl -sI --max-time 5 "$url" | sed -n 's/^[Dd]ate: //p' | tr -d '\r')
 	[ -n "$header" ] || continue
-	date -u -s "$header" >/dev/null 2>&1 && exit 0
+	if date -u -s "$header" >/dev/null 2>&1; then
+		hwclock -w >/dev/null 2>&1 || true
+		exit 0
+	fi
 done
 exit 1
