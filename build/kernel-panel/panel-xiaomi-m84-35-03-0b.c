@@ -26,6 +26,7 @@ struct panel_m84_35_03_0bp {
 	struct gpio_desc *reset_gpio;
 	struct delayed_work bl_work;
 	u16 bl_value;
+	bool prepared;
 };
 
 static inline
@@ -173,6 +174,10 @@ static int panel_m84_35_03_0bp_prepare(struct drm_panel *panel)
 
 	msleep(28); /* TODO: Is this panel-dependent? */
 
+	ctx->prepared = true;
+	if (ctx->panel.backlight)
+		backlight_update_status(ctx->panel.backlight);
+
 	return 0;
 }
 
@@ -180,6 +185,7 @@ static int panel_m84_35_03_0bp_unprepare(struct drm_panel *panel)
 {
 	struct panel_m84_35_03_0bp *ctx = to_panel_m84_35_03_0bp(panel);
 
+	ctx->prepared = false;
 	cancel_delayed_work_sync(&ctx->bl_work);
 	struct device *dev = &ctx->dsi->dev;
 	int ret;
@@ -225,6 +231,8 @@ static void panel_m84_35_03_0bp_bl_work(struct work_struct *work)
 	struct panel_m84_35_03_0bp *ctx = container_of(work, struct panel_m84_35_03_0bp,
 						    bl_work.work);
 
+	if (!ctx->prepared)
+		return;
 	mipi_dsi_dcs_set_display_brightness_large(ctx->dsi, ctx->bl_value);
 }
 
@@ -233,6 +241,8 @@ static int panel_m84_35_03_0bp_bl_update_status(struct backlight_device *bl)
 	struct mipi_dsi_device *dsi = bl_get_data(bl);
 	struct panel_m84_35_03_0bp *ctx = mipi_dsi_get_drvdata(dsi);
 	u16 brightness = backlight_get_brightness(bl);
+	if (!brightness)
+		brightness = 1;
 	u16 level = brightness << 1;
 
 	/* Coalesce the stream of values a brightness slider produces.  Each
@@ -240,7 +250,8 @@ static int panel_m84_35_03_0bp_bl_update_status(struct backlight_device *bl)
 	 * the slider settles on instead of one command per step.
 	 */
 	ctx->bl_value = ((level >> 4) << 8) | (level & 0xf);
-	schedule_delayed_work(&ctx->bl_work, msecs_to_jiffies(100));
+	if (ctx->prepared)
+		mod_delayed_work(system_wq, &ctx->bl_work, msecs_to_jiffies(150));
 	return 0;
 }
 
