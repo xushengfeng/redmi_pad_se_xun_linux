@@ -26,3 +26,8 @@ idle-delay=uint32 300
 # confirmed to fix the unlock dialog.
 [org/gnome/desktop/screensaver]
 lock-enabled=false
+
+# Input method: US keyboard plus libpinyin, switched with Super+Space.
+[org/gnome/desktop/input-sources]
+sources=[('xkb', 'us'), ('ibus', 'libpinyin')]
+mru-sources=[('ibus', 'libpinyin'), ('xkb', 'us')]
