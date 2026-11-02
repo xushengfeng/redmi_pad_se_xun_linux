@@ -14,7 +14,7 @@ HOST_GID=${HOST_GID:-1000}
 # Use the same mirror inside the container; dl-cdn is slow or unreachable from
 # here. openssl is for the password hash, e2fsprogs builds the image.
 printf '%s\n' "$MIRROR/main" "$MIRROR/community" >/etc/apk/repositories
-apk add --no-cache openssl e2fsprogs >/dev/null
+apk add --no-cache openssl e2fsprogs zstd >/dev/null
 
 rm -rf "$ROOT"
 mkdir -p "$ROOT" "$WORK/apk-cache"
@@ -53,12 +53,17 @@ cp -a "$BASE/firmware/." "$ROOT/lib/firmware/"
 
 # cp -a preserves the source owner (the build user); the installed files
 # belong to root except for the home directory and the private SSH keys.
+# Only the copied files are touched here: a recursive chown of /usr/libexec
+# would clear the setuid bit on dbus-daemon-launch-helper.
 chown -R root:root "$ROOT/etc/local.d" "$ROOT/etc/dconf" \
 	"$ROOT/etc/gdm" "$ROOT/etc/NetworkManager" "$ROOT/etc/bluetooth" \
 	"$ROOT/etc/xdg" "$ROOT/etc/greetd" "$ROOT/etc/dnsmasq-xun.conf" \
-	"$ROOT/usr/local/bin" "$ROOT/usr/libexec" \
+	"$ROOT/usr/local" "$ROOT/usr/libexec/elogind" \
 	"$ROOT/usr/share/alsa/ucm2" "$ROOT/lib/firmware" \
 	"$ROOT/usr/bin/gnome-session" "$ROOT/usr/bin/gnome-shell"
+# cp -a also copied the directory attributes of build/device/etc and
+# build/device/usr onto /etc and /usr themselves.
+chown root:root "$ROOT/etc" "$ROOT/usr" "$ROOT/usr/bin" "$ROOT/usr/local"
 
 rm -f "$ROOT/sbin/init"
 install -m 755 "$BASE/rootfs-init.sh" "$ROOT/sbin/init"
@@ -100,12 +105,14 @@ HASH=$(openssl passwd -6 xun)
 if ! grep -q '^xun:' "$ROOT/etc/passwd"; then
 	echo 'xun:x:1000:1000::/home/xun:/bin/bash' >>"$ROOT/etc/passwd"
 	echo 'xun:x:1000:' >>"$ROOT/etc/group"
-	echo "xun:$HASH:0:0:99999:7:::" >>"$ROOT/etc/shadow"
+	# pam_unix treats a zero last-change day as an expired password, which
+	# makes GDM autologin fail; use day 1 of the epoch instead.
+	echo "xun:$HASH:1:0:99999:7:::" >>"$ROOT/etc/shadow"
 	echo 'xun:!::' >>"$ROOT/etc/gshadow"
 	mkdir -p "$ROOT/home/xun"
 	cp -a "$ROOT/etc/skel/." "$ROOT/home/xun/" 2>/dev/null || true
 fi
-sed -i "s|^root:[^:]*:|root:$HASH:|" "$ROOT/etc/shadow"
+sed -i "s|^root:[^:]*:[^:]*:|root:$HASH:1:|" "$ROOT/etc/shadow"
 for g in wheel audio video input netdev plugdev render bluetooth; do
 	grep -q "^$g:" "$ROOT/etc/group" || continue
 	awk -F: -v g="$g" -v OFS=: '
@@ -180,6 +187,20 @@ command -v update-ca-certificates >/dev/null && update-ca-certificates || true
 command -v udevadm >/dev/null && udevadm hwdb --update || true
 command -v dconf >/dev/null && dconf update || true
 '
+
+# Alpine ships the WCN3990 and regulatory firmware zstd-compressed, but the
+# xun kernel only has the XZ decompressor. Leave the .zst files in place and
+# add the uncompressed names the firmware loader looks for.
+if [ -d "$ROOT/lib/firmware/ath10k/WCN3990" ]; then
+	find "$ROOT/lib/firmware/ath10k/WCN3990" -name '*.zst' | while read -r f; do
+		zstd -d -f "$f" -o "${f%.zst}" >/dev/null 2>&1 || true
+	done
+fi
+for f in "$ROOT"/lib/firmware/regulatory.db.zst \
+	"$ROOT"/lib/firmware/regulatory.db.p7s.zst; do
+	[ -f "$f" ] && zstd -d -f "$f" -o "${f%.zst}" >/dev/null 2>&1 || true
+done
+chown -R root:root "$ROOT/lib/firmware"
 
 # Build the filesystem while the tree is still owned by root: mke2fs -d copies
 # the ownership and the setuid bits into the image. root can also read the

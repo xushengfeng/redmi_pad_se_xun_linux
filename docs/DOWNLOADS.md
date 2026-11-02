@@ -34,7 +34,7 @@ missing. They are the reproducible way to rebuild `build/` from a clone.
 | Xiaomi vendor audio sources | `https://raw.githubusercontent.com/Xiaomi-Redmi-Pad-SE-Resources/android_kernel_xiaomi_sm6225-modules/<rev>/qcom/opensource/audio-kernel/asoc/codecs/fs1815/...` at `819001a03074d4ba3befd21b996f23cda06e6abb` (branch `lineage-22.2`) | `build/downloads/xun-vendor/audio/fs1815` | 112 KB, 9 files |
 | `fs1815.fsm` (amplifier preset) | the tablet's Android `vendor` logical partition (`/vendor/firmware/fs1815.fsm`, EROFS inside `super`) | `build/firmware/fs1815.fsm` | 2.4 KB |
 | xun stock partition dump | `https://github.com/gm-stuffs/redmi_xun_dump` (branch `missi-user-15-AQ3A.240829.003-OS2.0.1.0.VMUMIXM`) | `build/live/` (local dump); the decompiled DT is in `docs/reference/` and tracked | 643 MB |
-| Firmware | stock tablet partitions and `firmware-xiaomi-spes`; see the table in [`BUILD.md`](BUILD.md#2-firmware) | `build/firmware/` | 18 MB |
+| Firmware | stock tablet partitions and `firmware-xiaomi-spes`; see the table in [`BUILD.md`](BUILD.md#2-firmware) | `build/firmware/` | 38 MB |
 
 The SSH key `build/ssh/xun_key` is generated locally, not downloaded; see
 [`DEBUG.md`](DEBUG.md#ssh) for recreating it.
@@ -63,6 +63,8 @@ comes from; the files themselves end up in:
 | Path | Contents |
 | --- | --- |
 | `build/firmware/qcom/sm6225/xiaomi/xun/adsp.*` | ADSP firmware, copied from the tablet's stock `modem_a` partition; `build-xun.sh` puts it into the initramfs |
+| `build/firmware/qcom/sm6225/xiaomi/xun/modem.*` | modem DSP firmware from the stock `modem_a` image; without it the WLAN service never appears |
+| `build/firmware/qcom/sm6225/xiaomi/xun/wlanmdsp.mbn`, `bdwlan*`, `bd84*` | WLAN firmware and board data from the stock `modem_a` image |
 | `build/firmware/qcom/a610_zap.*`, `a630_sqe.fw` | Adreno zap/sqe, from `firmware-xiaomi-spes`; embedded into the kernel |
 | `build/firmware/focaltech_ts_fw_*_ft8203.bin` | touch firmware from the stock `vendor` partition; embedded into the kernel |
 | `build/firmware/qca/crbtfw13.tlv`, `crnv13.bin` | stock `bluetooth_a` (`cmbtfw13.tlv`, `cmnv13.bin` under the `cr` names); embedded into the kernel, see [`BLUETOOTH.md`](BLUETOOTH.md) |

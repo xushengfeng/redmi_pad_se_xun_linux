@@ -71,6 +71,9 @@ redistributed here. Put it in `build/firmware`:
 | Files | From |
 | --- | --- |
 | `qcom/sm6225/xiaomi/xun/adsp.*` | stock `modem_a`: `mount -t vfat -o ro /dev/disk/by-partlabel/modem_a /mnt` then copy `image/adsp.*` |
+| `qcom/sm6225/xiaomi/xun/modem.*` | the same stock image: the modem DSP firmware (needed for WLAN) |
+| `qcom/sm6225/xiaomi/xun/wlanmdsp.mbn`, `bdwlan*`, `bdwlanu*`, `bdwlans*`, `bdwlant*`, `bd84*` | the same stock image: WLAN firmware and board data served by the modem |
+| `ath10k/WCN3990/hw1.0/*` | Alpine `linux-firmware-qca`; the image builder decompresses the `.zst` files because the kernel has no ZSTD firmware decompressor |
 | `qcom/a610_zap.*`, `qcom/a630_sqe.fw` | `firmware-xiaomi-spes` (`https://gitlab.postmarketos.org/sm6225-mainline/firmwares/firmware-xiaomi-spes`), `qcom/sm6225/XIAOMI/SPES/` |
 | `focaltech_ts_fw_boe_ft8203.bin`, `focaltech_ts_fw_huaxing_ft8203.bin` | stock `vendor` partition touch firmware (m84 panel) |
 | `qcom/sm4250/SM6225-Xun-tplg.bin` | built by `build/mktplg.sh` (needs `m4` and `alsatplg`) |
