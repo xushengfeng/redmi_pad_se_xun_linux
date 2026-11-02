@@ -115,6 +115,9 @@ tablet itself when nothing else works.
 
 ## Replacing the kernel and the rootfs files
 
+See [`UPDATES.md`](UPDATES.md) for which updates preserve `/home` and the
+other user data. This section is the short version.
+
 ```sh
 cd build
 ./build-xun.sh                      # -> out/boot-xun.img

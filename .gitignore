@@ -1,5 +1,6 @@
 # Build and extraction output
 out/
+backups/
 xun-dt/
 *.dtb
 *.img

@@ -53,6 +53,7 @@ ADSP sensor core and the cameras are the main pieces still missing.
 | [`docs/BLUETOOTH.md`](docs/BLUETOOTH.md) | QCA Bluetooth over UART: firmware, the board address, the in-band sleep workaround and testing |
 | [`docs/CHARGER.md`](docs/CHARGER.md) | BQ2589X charger, battery state on AC, USB type detection and what upower sees |
 | [`docs/DEBUG.md`](docs/DEBUG.md) | USB link and serial console, SSH, deploying kernel/rootfs files, fastboot/ADB, collecting state |
+| [`docs/UPDATES.md`](docs/UPDATES.md) | Updating kernel, packages, device files and firmware; what preserves user data and how to back up before a full image flash |
 | [`docs/DOWNLOADS.md`](docs/DOWNLOADS.md) | Every downloaded artifact with its URL and revision, where it lands, and how to rebuild it |
 | [`docs/PLAN.md`](docs/PLAN.md) | Phased port plan, boot strategy, acceptance criteria, risks, estimate |
 | [`docs/BRINGUP.md`](docs/BRINGUP.md) | Unlocked-bootloader bring-up runbook: data collection, first v4 boot, minimal DTS, debug checklist |
