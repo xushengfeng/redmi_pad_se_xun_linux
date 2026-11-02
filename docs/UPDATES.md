@@ -5,7 +5,7 @@
 | Part | Contents | Updating it touches user data? |
 | --- | --- | --- |
 | `boot_b` | kernel, DTB, initramfs (board drivers, ADSP firmware, topology) | no |
-| `userdata` (`mmcblk0p91`) | Alpine rootfs: `/usr`, `/etc`, `/var`, `/home/xun` | **yes, if reflashed** |
+| `userdata` (`by-partlabel/userdata`, p91; eMMC is `mmcblk0` or `mmcblk1`) | Alpine rootfs: `/usr`, `/etc`, `/var`, `/home/xun` | **yes, if reflashed** |
 | slot A | Android, untouched by the Linux install | no |
 
 There is no separate data partition. `/home/xun`, Wi-Fi passwords in
