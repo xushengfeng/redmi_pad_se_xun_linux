@@ -4,6 +4,7 @@
 //   Copyright (c) 2013, The Linux Foundation. All rights reserved. (FIXME)
 
 #include <linux/backlight.h>
+#include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/device-id/of.h>
 #include <linux/gpio/consumer.h>
@@ -23,6 +24,8 @@ struct panel_m84_35_03_0bp {
 	struct mipi_dsi_device *dsi;
 	struct drm_dsc_config dsc;
 	struct gpio_desc *reset_gpio;
+	struct delayed_work bl_work;
+	u16 bl_value;
 };
 
 static inline
@@ -140,6 +143,7 @@ static int panel_m84_35_03_0bp_off(struct panel_m84_35_03_0bp *ctx)
 static int panel_m84_35_03_0bp_prepare(struct drm_panel *panel)
 {
 	struct panel_m84_35_03_0bp *ctx = to_panel_m84_35_03_0bp(panel);
+
 	struct device *dev = &ctx->dsi->dev;
 	struct drm_dsc_picture_parameter_set pps;
 	int ret;
@@ -175,6 +179,8 @@ static int panel_m84_35_03_0bp_prepare(struct drm_panel *panel)
 static int panel_m84_35_03_0bp_unprepare(struct drm_panel *panel)
 {
 	struct panel_m84_35_03_0bp *ctx = to_panel_m84_35_03_0bp(panel);
+
+	cancel_delayed_work_sync(&ctx->bl_work);
 	struct device *dev = &ctx->dsi->dev;
 	int ret;
 
@@ -214,17 +220,28 @@ static const struct drm_panel_funcs panel_m84_35_03_0bp_panel_funcs = {
 	.get_modes = panel_m84_35_03_0bp_get_modes,
 };
 
+static void panel_m84_35_03_0bp_bl_work(struct work_struct *work)
+{
+	struct panel_m84_35_03_0bp *ctx = container_of(work, struct panel_m84_35_03_0bp,
+						    bl_work.work);
+
+	mipi_dsi_dcs_set_display_brightness_large(ctx->dsi, ctx->bl_value);
+}
+
 static int panel_m84_35_03_0bp_bl_update_status(struct backlight_device *bl)
 {
 	struct mipi_dsi_device *dsi = bl_get_data(bl);
+	struct panel_m84_35_03_0bp *ctx = mipi_dsi_get_drvdata(dsi);
 	u16 brightness = backlight_get_brightness(bl);
+	u16 level = brightness << 1;
 
-	/* The init sequence sends DCS commands in LP mode.  Toggling
-	 * MIPI_DSI_MODE_LPM off for a single command while video is
-	 * running produces FIFO/timeout errors and can wedge the DSI
-	 * link, so keep the panel in its normal LP mode.
+	/* Coalesce the stream of values a brightness slider produces.  Each
+	 * DCS write briefly disturbs the video stream, so send only the value
+	 * the slider settles on instead of one command per step.
 	 */
-	return mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
+	ctx->bl_value = ((level >> 4) << 8) | (level & 0xf);
+	schedule_delayed_work(&ctx->bl_work, msecs_to_jiffies(100));
+	return 0;
 }
 
 static const struct backlight_ops panel_m84_35_03_0bp_bl_ops = {
@@ -238,8 +255,8 @@ panel_m84_35_03_0bp_create_backlight(struct mipi_dsi_device *dsi)
 	struct device *dev = &dsi->dev;
 	const struct backlight_properties props = {
 		.type = BACKLIGHT_RAW,
-		.brightness = 2047,
-		.max_brightness = 4095,
+		.brightness = 1024,
+		.max_brightness = 2047,
 	};
 
 	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
@@ -265,6 +282,7 @@ static int panel_m84_35_03_0bp_probe(struct mipi_dsi_device *dsi)
 
 	ctx->dsi = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
+	INIT_DELAYED_WORK(&ctx->bl_work, panel_m84_35_03_0bp_bl_work);
 
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
