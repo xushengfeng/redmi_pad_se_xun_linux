@@ -1,0 +1,123 @@
+--- a/drivers/power/supply/bq25890_charger.c
++++ b/drivers/power/supply/bq25890_charger.c
+@@ -127,6 +127,7 @@
+ 	bool read_back_init_data;
+ 	bool force_hiz;
+ 	bool enable_auto_dpdm;
++	bool is_bq2589x;
+ 	u32 pump_express_vbus_max;
+ 	u32 iinlim_percentage;
+ 	enum bq25890_chip_version chip_version;
+@@ -530,6 +531,42 @@
+ 	}
+ }
+ 
++/*
++ * The BQ2589X lets a Quick Charge adapter settle at 9 V (see the HVDCP
++ * setup in bq25890_hw_init()), but the chip's own D+/D- detection sets a
++ * 1.5 A input limit for a MaxCharge source.  Raise it to 2 A so the charger
++ * can pull the full 18 W from a 9 V adapter while the cell takes 3.6 A.
++ * Standard USB sources keep their BC1.2 limits.
++ */
++#define BQ2589X_FAST_CHARGE_IINLIM_UA	2000000
++
++static void bq25890_bq2589x_update_iinlim(struct bq25890_device *bq)
++{
++	u32 iinlim_ua;
++	u8 lval;
++
++	if (!bq->is_bq2589x || !bq->state.online)
++		return;
++
++	switch (bq->state.vbus_type) {
++	case BQ25890_VBUS_SDP:
++		iinlim_ua = 500000;
++		break;
++	case BQ25890_VBUS_CDP:
++		iinlim_ua = 1500000;
++		break;
++	case BQ25890_VBUS_DCP:
++	case BQ25890_VBUS_HVDCP:
++		iinlim_ua = BQ2589X_FAST_CHARGE_IINLIM_UA;
++		break;
++	default:
++		return;
++	}
++
++	lval = bq25890_find_idx(iinlim_ua, TBL_IINLIM);
++	bq25890_field_write(bq, F_IINLIM, lval);
++}
++
+ static int bq25890_power_supply_get_property(struct power_supply *psy,
+ 					     enum power_supply_property psp,
+ 					     union power_supply_propval *val)
+@@ -867,6 +904,7 @@
+ static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
+ {
+ 	bool adc_conv_rate, new_adc_conv_rate;
++	bool vbus_changed;
+ 	struct bq25890_state new_state;
+ 	int ret;
+ 
+@@ -877,6 +915,8 @@
+ 	if (!memcmp(&bq->state, &new_state, sizeof(new_state)))
+ 		return IRQ_NONE;
+ 
++	vbus_changed = new_state.vbus_type != bq->state.vbus_type;
++
+ 	/*
+ 	 * Restore HiZ bit in case it was set by user. The chip does not retain
+ 	 * this bit on cable replug, hence the bit must be reset manually here.
+@@ -899,6 +939,8 @@
+ 	}
+ 
+ 	bq->state = new_state;
++	if (vbus_changed)
++		bq25890_bq2589x_update_iinlim(bq);
+ 	power_supply_changed(bq->charger);
+ 
+ 	return IRQ_HANDLED;
+@@ -1015,6 +1057,26 @@
+ 		return ret;
+ 	}
+ 
++	/*
++	 * The BQ2589X advertises the Quick Charge handshake only when asked
++	 * to; keep MAXC_EN clear so an adapter settles at 9 V rather than
++	 * 12 V.  The charger then runs its own D+/D- negotiation whenever a
++	 * cable is attached (AUTO_DPDM_EN below).
++	 */
++	if (bq->is_bq2589x) {
++		ret = bq25890_field_write(bq, F_HVDCP_EN, 1);
++		if (ret < 0) {
++			dev_dbg(bq->dev, "Enabling HVDCP failed %d\n", ret);
++			return ret;
++		}
++
++		ret = bq25890_field_write(bq, F_MAXC_EN, 0);
++		if (ret < 0) {
++			dev_dbg(bq->dev, "Selecting 9 V HVDCP failed %d\n", ret);
++			return ret;
++		}
++	}
++
+ 	/* Run D+/D- detection in hardware when requested (e.g. Xiaomi
+ 	 * spes boards set ti,enable-auto-dpdm); the result lands in
+ 	 * VBUS_STAT and is reported via POWER_SUPPLY_PROP_USB_TYPE. */
+@@ -1037,6 +1099,8 @@
+ 		return ret;
+ 	}
+ 
++	bq25890_bq2589x_update_iinlim(bq);
++
+ 	/* Configure ADC for continuous conversions when charging */
+ 	ret = bq25890_field_write(bq, F_CONV_RATE, bq->state.online && !bq->state.hiz);
+ 	if (ret < 0) {
+@@ -1371,6 +1435,7 @@
+ 	/* Xiaomi's BQ2589X reports part number 4; same register map */
+ 	case 4:
+ 		bq->chip_version = BQ25890;
++		bq->is_bq2589x = true;
+ 		break;
+ 
+ 	/* BQ25892 and BQ25896 share same ID 0 */

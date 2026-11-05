@@ -415,7 +415,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&bq2589x_int_default>;
 
-		ti,charge-current = <2000000>;
+		/* 18 W fast charge: 9 V / 2 A in, 3.6 A into the cell */
+		ti,charge-current = <3600000>;
 		ti,battery-regulation-voltage = <4450000>;
 		ti,termination-current = <450000>;
 		ti,precharge-current = <128000>;

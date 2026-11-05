@@ -32,7 +32,8 @@ ADSP sensor core and the cameras are the main pieces still missing.
 - Bluetooth: QCA combo over UART, firmware download, scanning and pairing.
 - Clock: PMIC RTC, chrony, HTTP fallback.
 - Battery and charging: SH366101 fuel gauge and BQ2589X charger through
-  power_supply/upower, with USB charger type detection.
+  power_supply/upower, with USB charger type detection and 18 W Quick Charge
+  fast charging (9 V / 2 A).
 
 ## What is missing
 
@@ -40,7 +41,9 @@ ADSP sensor core and the cameras are the main pieces still missing.
   but the sensor dies do not answer on I2C (`docs/CAMERAS.md`).
 - Accelerometer and ambient light: they live on the ADSP sensor core (SSC),
   so there is no automatic rotation or automatic brightness yet.
-- USB Power Delivery beyond 5 V (the official DT has no TCPC node).
+- USB Power Delivery: the stock DT's SC2150 PD controller does not answer on
+  `i2c1`, so PD-only chargers stay at 5 V; Quick Charge 2.0/3.0 is the 18 W
+  fast-charge path.
 
 ## Documents
 

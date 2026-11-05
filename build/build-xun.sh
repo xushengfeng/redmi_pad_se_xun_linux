@@ -79,6 +79,14 @@ if ! grep -q 'BQ2589X reports part number 4' "$SRC/drivers/power/supply/bq25890_
 		exit 1
 	}
 fi
+# The BQ2589X needs the Quick Charge handshake enabled explicitly and the
+# input limit raised for the 9 V fast-charge source.
+if ! grep -q 'BQ2589X_FAST_CHARGE_IINLIM_UA' "$SRC/drivers/power/supply/bq25890_charger.c"; then
+	patch -d "$SRC" -p1 -s -N <"$ROOT/patches/bq2589x-quickcharge.patch" || {
+		echo "BQ2589X fast-charge patch did not apply cleanly" >&2
+		exit 1
+	}
+fi
 
 # --- board files ---------------------------------------------------------
 cp "$ROOT/kernel-dts/sm6225-xiaomi-xun.dts" "$SRC/$DTS_DIR/"

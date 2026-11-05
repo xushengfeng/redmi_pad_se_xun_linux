@@ -130,7 +130,8 @@ Touch power/AVDD is not explicit in the merged tree; the stock pinctrl has
 
 The stock BQ2589X node uses vendor-specific properties (`ti,bq2589x,*`) and
 different interrupt GPIO than tapas (GPIO 84 here, GPIO 105 on tapas). The
-mainline `bq25890` driver needs a compatibility/register check for BQ2589X.
+mainline `bq25890` driver matches the BQ2589X through
+`build/patches/bq2589x-id.patch`.
 
 ## Audio
 
