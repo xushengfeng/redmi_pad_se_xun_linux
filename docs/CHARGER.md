@@ -104,10 +104,27 @@ The input limit follows the detected source: 500 mA on SDP, 1.5 A on CDP and
 2 A on DCP/HVDCP. A 5 V DCP adapter therefore charges at up to 10 W; only a QC
 adapter that raises VBUS to 9 V reaches 18 W.
 
-A PD-only charger stays at 5 V. The stock device tree contains an SC2150
-Type-C PD controller at 0x4e, but the part does not answer on `i2c1` on this
-board and there is no mainline driver for it. Quick Charge is the supported
-fast-charge path.
+The BQ2589X does not always run its D+/D- detection on a fresh attach and can
+report the source as `Unknown` (VBUS_STAT `101`). The driver retries the
+detection up to twice per plug:
+
+```text
+bq25890-charger 2-006a: VBUS online, type 5
+bq25890-charger 2-006a: re-running D+/D- detection (1)
+bq25890-charger 2-006a: VBUS type 3: input current limit 2000000 uA
+```
+
+`type 5` is `Unknown`; `type 3` is DCP. If both retries still end in `type 5`,
+the source did not present a BC1.2/QC signature at all. That is what happens
+with a PD-only USB-C charger (for example the Xiaomi 100 W PD/PPS charger) or
+a charge-only cable: the input limit stays at the 500 mA `Unknown` default and
+the tablet charges at about 2.5 W.
+
+A PD-only charger cannot reach 9 V here. The stock device tree contains an
+SC2150 Type-C PD controller at 0x4e, but the part does not answer on `i2c1` on
+this board and there is no mainline driver for it. Quick Charge is the
+supported fast-charge path; use a QC2.0/QC3.0 charger (typically a USB-A
+18 W/22.5 W/33 W wall charger).
 
 ## Limits
 
