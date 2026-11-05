@@ -1,6 +1,15 @@
 --- a/drivers/power/supply/bq25890_charger.c
 +++ b/drivers/power/supply/bq25890_charger.c
-@@ -127,6 +127,7 @@
+@@ -118,6 +118,8 @@
+ 	struct notifier_block usb_nb;
+ 	struct work_struct usb_work;
+ 	struct delayed_work pump_express_work;
++	struct delayed_work dpdm_work;
++	u8 dpdm_retries;
+ 	unsigned long usb_event;
+ 
+ 	struct regmap *rmap;
+@@ -127,6 +129,7 @@
  	bool read_back_init_data;
  	bool force_hiz;
  	bool enable_auto_dpdm;
@@ -8,7 +17,7 @@
  	u32 pump_express_vbus_max;
  	u32 iinlim_percentage;
  	enum bq25890_chip_version chip_version;
-@@ -379,6 +380,19 @@
+@@ -379,6 +382,19 @@
  	return regmap_field_write(bq->rmap_fields[field_id], val);
  }
  
@@ -28,7 +37,7 @@
  static u8 bq25890_find_idx(u32 value, enum bq25890_table_ids id)
  {
  	u8 idx;
-@@ -530,6 +544,44 @@
+@@ -530,6 +546,44 @@
  	}
  }
  
@@ -73,7 +82,7 @@
  static int bq25890_power_supply_get_property(struct power_supply *psy,
  					     enum power_supply_property psp,
  					     union power_supply_propval *val)
-@@ -867,6 +919,7 @@
+@@ -867,6 +921,7 @@
  static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
  {
  	bool adc_conv_rate, new_adc_conv_rate;
@@ -81,7 +90,7 @@
  	struct bq25890_state new_state;
  	int ret;
  
-@@ -877,6 +930,9 @@
+@@ -877,6 +932,9 @@
  	if (!memcmp(&bq->state, &new_state, sizeof(new_state)))
  		return IRQ_NONE;
  
@@ -91,7 +100,19 @@
  	/*
  	 * Restore HiZ bit in case it was set by user. The chip does not retain
  	 * this bit on cable replug, hence the bit must be reset manually here.
-@@ -899,6 +955,12 @@
+@@ -888,6 +946,11 @@
+ 		new_state.hiz = 1;
+ 	}
+ 
++	if (online_changed && !new_state.online) {
++		bq->dpdm_retries = 0;
++		cancel_delayed_work(&bq->dpdm_work);
++	}
++
+ 	/* Should period ADC sampling be enabled? */
+ 	adc_conv_rate = bq->state.online && !bq->state.hiz;
+ 	new_adc_conv_rate = new_state.online && !new_state.hiz;
+@@ -899,6 +962,22 @@
  	}
  
  	bq->state = new_state;
@@ -101,10 +122,60 @@
 +			 new_state.vbus_type);
 +	if (vbus_changed)
 +		bq25890_bq2589x_update_iinlim(bq);
++
++	/*
++	 * The BQ2589X often reports the source as "unknown" on a fresh
++	 * attach and needs an explicit detection run.  Retry a couple of
++	 * times per plug.
++	 */
++	if (bq->is_bq2589x && new_state.online && bq->dpdm_retries < 2 &&
++	    (online_changed || new_state.vbus_type == BQ25890_VBUS_UNKNOWN))
++		schedule_delayed_work(&bq->dpdm_work, msecs_to_jiffies(200));
++
  	power_supply_changed(bq->charger);
  
  	return IRQ_HANDLED;
-@@ -1015,6 +1077,26 @@
+@@ -908,6 +987,39 @@
+ 	return IRQ_HANDLED;
+ }
+ 
++static void bq25890_dpdm_work(struct work_struct *work)
++{
++	struct bq25890_device *bq =
++		container_of(work, struct bq25890_device, dpdm_work.work);
++	struct bq25890_state new_state;
++	int ret;
++
++	mutex_lock(&bq->lock);
++	if (!bq->state.online)
++		goto out;
++
++	bq->dpdm_retries++;
++	dev_info(bq->dev, "re-running D+/D- detection (%u)\n",
++		 bq->dpdm_retries);
++	ret = bq25890_force_dpdm(bq);
++	if (ret < 0)
++		dev_warn(bq->dev, "Forced DPDM failed %d\n", ret);
++
++	ret = bq25890_get_chip_state(bq, &new_state);
++	if (ret < 0)
++		goto out;
++
++	bq->state = new_state;
++	bq25890_bq2589x_update_iinlim(bq);
++	power_supply_changed(bq->charger);
++
++	if (bq->state.online && bq->state.vbus_type == BQ25890_VBUS_UNKNOWN &&
++	    bq->dpdm_retries < 2)
++		schedule_delayed_work(&bq->dpdm_work, msecs_to_jiffies(300));
++out:
++	mutex_unlock(&bq->lock);
++}
++
+ static irqreturn_t bq25890_irq_handler_thread(int irq, void *private)
+ {
+ 	struct bq25890_device *bq = private;
+@@ -1015,6 +1127,26 @@
  		return ret;
  	}
  
@@ -131,7 +202,7 @@
  	/* Run D+/D- detection in hardware when requested (e.g. Xiaomi
  	 * spes boards set ti,enable-auto-dpdm); the result lands in
  	 * VBUS_STAT and is reported via POWER_SUPPLY_PROP_USB_TYPE. */
-@@ -1026,6 +1108,22 @@
+@@ -1026,6 +1158,23 @@
  		}
  	}
  
@@ -145,6 +216,7 @@
 +	if (bq->is_bq2589x) {
 +		ret = bq25890_field_read(bq, F_VBUS_GD);
 +		if (ret == 1) {
++			bq->dpdm_retries = 1;
 +			ret = bq25890_force_dpdm(bq);
 +			if (ret < 0)
 +				dev_dbg(bq->dev, "Forced DPDM failed %d\n", ret);
@@ -154,7 +226,7 @@
  	/* initialize currents/voltages and other parameters */
  	ret = bq25890_rw_init_data(bq);
  	if (ret)
-@@ -1037,6 +1135,8 @@
+@@ -1037,6 +1186,8 @@
  		return ret;
  	}
  
@@ -163,7 +235,7 @@
  	/* Configure ADC for continuous conversions when charging */
  	ret = bq25890_field_write(bq, F_CONV_RATE, bq->state.online && !bq->state.hiz);
  	if (ret < 0) {
-@@ -1371,6 +1471,7 @@
+@@ -1371,6 +1522,7 @@
  	/* Xiaomi's BQ2589X reports part number 4; same register map */
  	case 4:
  		bq->chip_version = BQ25890;
@@ -171,3 +243,30 @@
  		break;
  
  	/* BQ25892 and BQ25896 share same ID 0 */
+@@ -1516,6 +1668,7 @@
+ 	struct bq25890_device *bq = data;
+ 
+ 	cancel_delayed_work_sync(&bq->pump_express_work);
++	cancel_delayed_work_sync(&bq->dpdm_work);
+ 
+ 	if (bq->id >= 0) {
+ 		mutex_lock(&bq25890_id_mutex);
+@@ -1540,6 +1693,7 @@
+ 
+ 	mutex_init(&bq->lock);
+ 	INIT_DELAYED_WORK(&bq->pump_express_work, bq25890_pump_express_work);
++	INIT_DELAYED_WORK(&bq->dpdm_work, bq25890_dpdm_work);
+ 
+ 	bq->rmap = devm_regmap_init_i2c(client, &bq25890_regmap_config);
+ 	if (IS_ERR(bq->rmap))
+@@ -1569,6 +1723,10 @@
+ 		return ret;
+ 	}
+ 
++	if (bq->is_bq2589x && bq->state.online &&
++	    bq->state.vbus_type == BQ25890_VBUS_UNKNOWN)
++		schedule_delayed_work(&bq->dpdm_work, msecs_to_jiffies(300));
++
+ 	if (client->irq <= 0)
+ 		client->irq = bq25890_irq_probe(bq);
+ 
