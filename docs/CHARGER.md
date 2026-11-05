@@ -100,9 +100,10 @@ cat /sys/kernel/debug/regmap/2-006a/registers | sed -n '12p;18p'
 to `100`; `11` (VBUS ADC) reads 24 at 5 V and 64 at 9 V in bits 6:0 (100 mV
 steps above 2.6 V, bit 7 is VBUS_GD).
 
-The input limit follows the detected source: 500 mA on SDP, 1.5 A on CDP and
-2 A on DCP/HVDCP. A 5 V DCP adapter therefore charges at up to 10 W; only a QC
-adapter that raises VBUS to 9 V reaches 18 W.
+The input limit follows the detected source: 500 mA on SDP, 1.5 A on CDP,
+2 A on DCP/HVDCP and the CC-advertised current on `Unknown`. A 5 V DCP adapter
+therefore charges at up to 10 W; only a QC adapter that raises VBUS to 9 V
+reaches 18 W.
 
 The BQ2589X does not always run its D+/D- detection on a fresh attach and can
 report the source as `Unknown` (VBUS_STAT `101`). The driver retries the
@@ -116,15 +117,32 @@ bq25890-charger 2-006a: VBUS type 3: input current limit 2000000 uA
 
 `type 5` is `Unknown`; `type 3` is DCP. If both retries still end in `type 5`,
 the source did not present a BC1.2/QC signature at all. That is what happens
-with a PD-only USB-C charger (for example the Xiaomi 100 W PD/PPS charger) or
-a charge-only cable: the input limit stays at the 500 mA `Unknown` default and
-the tablet charges at about 2.5 W.
+with a PD-only USB-C charger (for example the Xiaomi 100 W PD/PPS charger).
 
-A PD-only charger cannot reach 9 V here. The stock device tree contains an
-SC2150 Type-C PD controller at 0x4e, but the part does not answer on `i2c1` on
-this board and there is no mainline driver for it. Quick Charge is the
-supported fast-charge path; use a QC2.0/QC3.0 charger (typically a USB-A
-18 W/22.5 W/33 W wall charger).
+## USB-C PD-only supplies (15 W)
+
+The tablet cannot negotiate PD: the stock device tree's SC2150 PD controller
+at 0x4e does not answer on `i2c1` on this board and there is no mainline driver
+for it. A PD-only charger therefore stays at 5 V, but it is not limited to the
+BQ2589X's 500 mA "unknown source" default. The WUSB3801 Type-C controller
+reports the current the supply advertises on CC, and the charger uses that
+when D+/D- detection ends in `Unknown`:
+
+```sh
+cat /sys/class/power_supply/wusb3801/online               # 1
+cat /sys/class/power_supply/wusb3801/input_current_limit  # 3000000 for 5 V/3 A
+cat /sys/class/typec/port0/power_operation_mode           # "3.0A"
+```
+
+The input limit is capped at 3 A, so a 5 V/3 A supply charges at 15 W input.
+Measured with the Xiaomi 100 W PD charger: about 2.25 A into a 4.06 V cell
+(9.2 W at the battery), with the cell around 43 °C after a couple of minutes.
+The QC path is unchanged: a QC adapter is detected as DCP/HVDCP and still uses
+9 V/2 A (18 W).
+
+The WUSB3801 needs a state-machine reset at probe; this board otherwise leaves
+its CC status at zero. `build/patches/wusb3801-typec-psy.patch` adds that reset
+and publishes the CC current as the `wusb3801` power supply.
 
 ## Limits
 

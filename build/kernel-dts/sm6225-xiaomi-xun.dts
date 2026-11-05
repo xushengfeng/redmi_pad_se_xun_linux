@@ -405,6 +405,31 @@
 		reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
 	};
 
+	/*
+	 * WUSB3801 Type-C port controller.  It reports the current
+	 * advertised on CC, which lets a PD-only charger run at 5 V/3 A
+	 * even though the tablet cannot negotiate PD.
+	 */
+	typec@60 {
+		compatible = "willsemi,wusb3801";
+		reg = <0x60>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <93 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wusb3801_int_default>;
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "dual";
+			try-power-role = "sink";
+			data-role = "dual";
+			typec-power-opmode = "default";
+			pd-disable;
+		};
+	};
+
 	/* BQ2589X charger (register compatible with the BQ25890 driver) */
 	charger@6a {
 		compatible = "ti,bq2589x-1";
@@ -431,6 +456,13 @@
 &tlmm {
 	bq2589x_int_default: bq2589x-int-default-state {
 		pins = "gpio84";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+
+	wusb3801_int_default: wusb3801-int-default-state {
+		pins = "gpio93";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-pull-up;

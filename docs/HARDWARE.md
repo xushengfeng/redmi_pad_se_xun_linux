@@ -123,7 +123,7 @@ Touch power/AVDD is not explicit in the merged tree; the stock pinctrl has
 | Main charger | TI BQ2589X | I²C0 `4a84000`, 0x6A | GPIO 84 | `ti,bq2589x-1`; DPDM to USB2 PHY; stock module `bq2589x_charger.ko` |
 | Fuel gauge | Southchip SH366101 | I²C1 `4a88000`, 0x55 | TBD (stock node has an IRQ GPIO) | Stock module `sh366101_fg.ko`; battery parameters in the DT |
 | USB-C PD | Southchip SC2150 | I²C0, 0x4E | GPIO 93 | `southchip,sc2150`; stock module `tcpc_sc2150.ko`; DP alt-mode config present |
-| USB switch / BC1.2 | WillSemi WUSB3801 | I²C0, 0x60 | GPIO 93 / 93 | `WillSemi,wusb3801`; stock module `wusb3801x.ko` |
+| USB switch / BC1.2 | WillSemi WUSB3801 | I²C0, 0x60 | GPIO 93 / 93 | `willsemi,wusb3801`; mainline driver plus `build/patches/wusb3801-typec-psy.patch` for the CC current |
 | Charger framework | NOPMI (`qcom,nopmi-chg`) | — | — | Mainline nopmi driver exists in the 7.2 tree; uses charger + fuel gauge + IIO channels |
 | USB | DWC3 HS | `4e00000.dwc3` | — | USB 2.0 High-Speed; QMP/DP PHY present, USB3/DP TBD |
 | USB VBUS/switch | — | PM6125 GPIO 1 / `usb_eldo9` | — | Stock `vdda_usb_ss_dp_core` fixed regulator |

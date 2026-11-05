@@ -37,7 +37,7 @@
  static u8 bq25890_find_idx(u32 value, enum bq25890_table_ids id)
  {
  	u8 idx;
-@@ -530,6 +546,44 @@
+@@ -530,6 +546,76 @@
  	}
  }
  
@@ -49,6 +49,34 @@
 + * Standard USB sources keep their BC1.2 limits.
 + */
 +#define BQ2589X_FAST_CHARGE_IINLIM_UA	2000000
++
++/*
++ * A USB-C supply that does not present BC1.2/Quick Charge on D+/D- still
++ * advertises its 5 V current on CC.  The WUSB3801 driver publishes that as
++ * a power supply, which lets a PD-only charger run at 5 V/3 A instead of
++ * the chip's 500 mA "unknown source" default.
++ */
++static int bq25890_get_typec_iinlim(u32 *iinlim_ua)
++{
++	struct power_supply *psy;
++	union power_supply_propval val;
++	int ret;
++
++	psy = power_supply_get_by_name("wusb3801");
++	if (!psy)
++		return -ENODEV;
++
++	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
++					&val);
++	power_supply_put(psy);
++	if (ret)
++		return ret;
++	if (val.intval <= 0)
++		return -ENODATA;
++
++	*iinlim_ua = min(val.intval, 3000000);
++	return 0;
++}
 +
 +static void bq25890_bq2589x_update_iinlim(struct bq25890_device *bq)
 +{
@@ -69,6 +97,10 @@
 +	case BQ25890_VBUS_HVDCP:
 +		iinlim_ua = BQ2589X_FAST_CHARGE_IINLIM_UA;
 +		break;
++	case BQ25890_VBUS_UNKNOWN:
++		if (bq25890_get_typec_iinlim(&iinlim_ua))
++			return;
++		break;
 +	default:
 +		return;
 +	}
@@ -82,7 +114,7 @@
  static int bq25890_power_supply_get_property(struct power_supply *psy,
  					     enum power_supply_property psp,
  					     union power_supply_propval *val)
-@@ -867,6 +921,7 @@
+@@ -867,6 +953,7 @@
  static irqreturn_t __bq25890_handle_irq(struct bq25890_device *bq)
  {
  	bool adc_conv_rate, new_adc_conv_rate;
@@ -90,7 +122,7 @@
  	struct bq25890_state new_state;
  	int ret;
  
-@@ -877,6 +932,9 @@
+@@ -877,6 +964,9 @@
  	if (!memcmp(&bq->state, &new_state, sizeof(new_state)))
  		return IRQ_NONE;
  
@@ -100,7 +132,7 @@
  	/*
  	 * Restore HiZ bit in case it was set by user. The chip does not retain
  	 * this bit on cable replug, hence the bit must be reset manually here.
-@@ -888,6 +946,11 @@
+@@ -888,6 +978,11 @@
  		new_state.hiz = 1;
  	}
  
@@ -112,7 +144,7 @@
  	/* Should period ADC sampling be enabled? */
  	adc_conv_rate = bq->state.online && !bq->state.hiz;
  	new_adc_conv_rate = new_state.online && !new_state.hiz;
-@@ -899,6 +962,22 @@
+@@ -899,6 +994,22 @@
  	}
  
  	bq->state = new_state;
@@ -135,7 +167,7 @@
  	power_supply_changed(bq->charger);
  
  	return IRQ_HANDLED;
-@@ -908,6 +987,39 @@
+@@ -908,6 +1019,39 @@
  	return IRQ_HANDLED;
  }
  
@@ -175,7 +207,7 @@
  static irqreturn_t bq25890_irq_handler_thread(int irq, void *private)
  {
  	struct bq25890_device *bq = private;
-@@ -1015,6 +1127,26 @@
+@@ -1015,6 +1159,26 @@
  		return ret;
  	}
  
@@ -202,7 +234,7 @@
  	/* Run D+/D- detection in hardware when requested (e.g. Xiaomi
  	 * spes boards set ti,enable-auto-dpdm); the result lands in
  	 * VBUS_STAT and is reported via POWER_SUPPLY_PROP_USB_TYPE. */
-@@ -1026,6 +1158,23 @@
+@@ -1026,6 +1190,23 @@
  		}
  	}
  
@@ -226,7 +258,7 @@
  	/* initialize currents/voltages and other parameters */
  	ret = bq25890_rw_init_data(bq);
  	if (ret)
-@@ -1037,6 +1186,8 @@
+@@ -1037,6 +1218,8 @@
  		return ret;
  	}
  
@@ -235,7 +267,7 @@
  	/* Configure ADC for continuous conversions when charging */
  	ret = bq25890_field_write(bq, F_CONV_RATE, bq->state.online && !bq->state.hiz);
  	if (ret < 0) {
-@@ -1371,6 +1522,7 @@
+@@ -1371,6 +1554,7 @@
  	/* Xiaomi's BQ2589X reports part number 4; same register map */
  	case 4:
  		bq->chip_version = BQ25890;
@@ -243,7 +275,7 @@
  		break;
  
  	/* BQ25892 and BQ25896 share same ID 0 */
-@@ -1516,6 +1668,7 @@
+@@ -1516,6 +1700,7 @@
  	struct bq25890_device *bq = data;
  
  	cancel_delayed_work_sync(&bq->pump_express_work);
@@ -251,7 +283,7 @@
  
  	if (bq->id >= 0) {
  		mutex_lock(&bq25890_id_mutex);
-@@ -1540,6 +1693,7 @@
+@@ -1540,6 +1725,7 @@
  
  	mutex_init(&bq->lock);
  	INIT_DELAYED_WORK(&bq->pump_express_work, bq25890_pump_express_work);
@@ -259,7 +291,7 @@
  
  	bq->rmap = devm_regmap_init_i2c(client, &bq25890_regmap_config);
  	if (IS_ERR(bq->rmap))
-@@ -1569,6 +1723,10 @@
+@@ -1569,6 +1755,10 @@
  		return ret;
  	}
  

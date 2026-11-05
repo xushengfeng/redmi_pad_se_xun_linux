@@ -1,0 +1,193 @@
+--- a/drivers/usb/typec/wusb3801.c
++++ b/drivers/usb/typec/wusb3801.c
+@@ -7,6 +7,7 @@
+ 
+ #include <linux/i2c.h>
+ #include <linux/module.h>
++#include <linux/power_supply.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/usb/typec.h>
+@@ -90,6 +91,8 @@
+ 	struct typec_port	*port;
+ 	struct regmap		*regmap;
+ 	struct regulator	*vbus_supply;
++	struct power_supply	*psy;
++	struct power_supply_desc psy_desc;
+ 	unsigned int		partner_type;
+ 	enum typec_port_type	port_type;
+ 	enum typec_pwr_opmode	pwr_opmode;
+@@ -178,6 +181,74 @@
+ 	}
+ }
+ 
++/*
++ * Publish the current a USB-C source advertises on CC.  The charger looks
++ * this up when the D+/D- lines do not identify a BC1.2/Quick Charge source,
++ * so a PD-only supply can still be used at 5 V/3 A instead of the 500 mA
++ * "unknown source" default.
++ */
++static int wusb3801_get_iinlim(struct wusb3801 *wusb3801, int *iinlim)
++{
++	unsigned int status;
++	int ret;
++
++	ret = regmap_read(wusb3801->regmap, WUSB3801_REG_STAT, &status);
++	if (ret)
++		return ret;
++
++	if (!(status & WUSB3801_STAT_VBUS_DETECTED)) {
++		*iinlim = 0;
++		return 0;
++	}
++
++	switch (status & WUSB3801_STAT_CURRENT) {
++	case WUSB3801_STAT_CURRENT_1_5A:
++		*iinlim = 1500000;
++		break;
++	case WUSB3801_STAT_CURRENT_3_0A:
++		*iinlim = 3000000;
++		break;
++	default:
++		*iinlim = 500000;
++		break;
++	}
++
++	return 0;
++}
++
++static enum power_supply_property wusb3801_psy_props[] = {
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
++};
++
++static int wusb3801_psy_get_property(struct power_supply *psy,
++				     enum power_supply_property psp,
++				     union power_supply_propval *val)
++{
++	struct wusb3801 *wusb3801 = power_supply_get_drvdata(psy);
++	unsigned int status;
++	int ret;
++
++	switch (psp) {
++	case POWER_SUPPLY_PROP_ONLINE:
++		ret = regmap_read(wusb3801->regmap, WUSB3801_REG_STAT,
++				  &status);
++		if (ret)
++			return ret;
++		val->intval = !!(status & WUSB3801_STAT_VBUS_DETECTED);
++		break;
++	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
++		ret = wusb3801_get_iinlim(wusb3801, &val->intval);
++		if (ret)
++			return ret;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int wusb3801_try_role(struct typec_port *port, int role)
+ {
+ 	struct wusb3801 *wusb3801 = typec_get_drvdata(port);
+@@ -211,6 +282,24 @@
+ 
+ static int wusb3801_hw_init(struct wusb3801 *wusb3801)
+ {
++	int ret;
++
++	/*
++	 * The state machine can come out of reset with the CC status stuck
++	 * at zero on this board.  Pulse SM_RST and release it before
++	 * programming the port mode.
++	 */
++	ret = regmap_write(wusb3801->regmap, WUSB3801_REG_CTRL1,
++			   WUSB3801_CTRL1_SM_RESET);
++	if (ret)
++		return ret;
++	usleep_range(100000, 120000);
++
++	ret = regmap_write(wusb3801->regmap, WUSB3801_REG_CTRL1, 0);
++	if (ret)
++		return ret;
++	usleep_range(100000, 120000);
++
+ 	return regmap_write(wusb3801->regmap, WUSB3801_REG_CTRL0,
+ 			    wusb3801_map_try_role(wusb3801->cap.prefer_role) |
+ 			    wusb3801_map_pwr_opmode(wusb3801->pwr_opmode) |
+@@ -234,14 +323,14 @@
+ 	partner_type = status & WUSB3801_STAT_PARTNER;
+ 
+ 	if (partner_type == WUSB3801_STAT_PARTNER_SNK) {
+-		if (!wusb3801->vbus_on) {
++		if (!wusb3801->vbus_on && wusb3801->vbus_supply) {
+ 			ret = regulator_enable(wusb3801->vbus_supply);
+ 			if (ret)
+ 				dev_warn(dev, "Failed to enable VBUS: %d\n", ret);
+ 			wusb3801->vbus_on = true;
+ 		}
+ 	} else {
+-		if (wusb3801->vbus_on) {
++		if (wusb3801->vbus_on && wusb3801->vbus_supply) {
+ 			regulator_disable(wusb3801->vbus_supply);
+ 			wusb3801->vbus_on = false;
+ 		}
+@@ -295,6 +384,9 @@
+ 			      wusb3801_unmap_orientation(status));
+ 
+ 	wusb3801->partner_type = partner_type;
++
++	if (wusb3801->psy)
++		power_supply_changed(wusb3801->psy);
+ }
+ 
+ static irqreturn_t wusb3801_irq(int irq, void *data)
+@@ -324,6 +416,7 @@
+ 	struct device *dev = &client->dev;
+ 	struct fwnode_handle *connector;
+ 	struct wusb3801 *wusb3801;
++	struct power_supply_config psy_cfg = {};
+ 	const char *cap_str;
+ 	int ret;
+ 
+@@ -339,9 +432,13 @@
+ 	if (IS_ERR(wusb3801->regmap))
+ 		return PTR_ERR(wusb3801->regmap);
+ 
+-	wusb3801->vbus_supply = devm_regulator_get(dev, "vbus");
+-	if (IS_ERR(wusb3801->vbus_supply))
+-		return PTR_ERR(wusb3801->vbus_supply);
++	wusb3801->vbus_supply = devm_regulator_get_optional(dev, "vbus");
++	if (IS_ERR(wusb3801->vbus_supply)) {
++		ret = PTR_ERR(wusb3801->vbus_supply);
++		if (ret != -ENODEV)
++			return ret;
++		wusb3801->vbus_supply = NULL;
++	}
+ 
+ 	connector = device_get_named_child_node(dev, "connector");
+ 	if (!connector)
+@@ -382,6 +479,21 @@
+ 	/* Initialize the port attributes from the hardware state. */
+ 	wusb3801_hw_update(wusb3801);
+ 
++	wusb3801->psy_desc.name = "wusb3801";
++	wusb3801->psy_desc.type = POWER_SUPPLY_TYPE_USB;
++	wusb3801->psy_desc.properties = wusb3801_psy_props;
++	wusb3801->psy_desc.num_properties = ARRAY_SIZE(wusb3801_psy_props);
++	wusb3801->psy_desc.get_property = wusb3801_psy_get_property;
++
++	psy_cfg.drv_data = wusb3801;
++	wusb3801->psy = devm_power_supply_register(dev, &wusb3801->psy_desc,
++						   &psy_cfg);
++	if (IS_ERR(wusb3801->psy)) {
++		ret = PTR_ERR(wusb3801->psy);
++		goto err_unregister_port;
++	}
++	power_supply_changed(wusb3801->psy);
++
+ 	ret = request_threaded_irq(client->irq, NULL, wusb3801_irq,
+ 				   IRQF_ONESHOT, dev_name(dev), wusb3801);
+ 	if (ret)

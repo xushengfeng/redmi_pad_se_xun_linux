@@ -87,6 +87,14 @@ if ! grep -q 'BQ2589X_FAST_CHARGE_IINLIM_UA' "$SRC/drivers/power/supply/bq25890_
 		exit 1
 	}
 fi
+# The WUSB3801 driver publishes the CC current so the charger can use 5 V/3 A
+# with a PD-only supply, and its VBUS regulator is optional on this board.
+if ! grep -q 'wusb3801_psy' "$SRC/drivers/usb/typec/wusb3801.c"; then
+	patch -d "$SRC" -p1 -s -N <"$ROOT/patches/wusb3801-typec-psy.patch" || {
+		echo "WUSB3801 Type-C patch did not apply cleanly" >&2
+		exit 1
+	}
+fi
 
 # --- board files ---------------------------------------------------------
 cp "$ROOT/kernel-dts/sm6225-xiaomi-xun.dts" "$SRC/$DTS_DIR/"
